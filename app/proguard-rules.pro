@@ -1,0 +1,3 @@
+-keep class com.silentlink.app.model.** { *; }
+-keep class com.google.firebase.** { *; }
+-dontwarn com.google.firebase.**
