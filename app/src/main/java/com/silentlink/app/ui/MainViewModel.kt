@@ -199,21 +199,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun addAlarmForPartner(alarm: RemoteAlarm) {
         viewModelScope.launch {
             val partnerUid = _uiState.value.partnerUid.ifEmpty { return@launch }
-            repository.addAlarm(partnerUid, alarm)
+            try {
+                repository.addAlarm(partnerUid, alarm)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(errorMessage = "알람 저장 실패: ${e.message}")
+            }
         }
     }
 
     fun updateAlarmForPartner(alarm: RemoteAlarm) {
         viewModelScope.launch {
             val partnerUid = _uiState.value.partnerUid.ifEmpty { return@launch }
-            repository.updateAlarm(partnerUid, alarm)
+            try {
+                repository.updateAlarm(partnerUid, alarm)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(errorMessage = "알람 수정 실패: ${e.message}")
+            }
         }
     }
 
     fun deleteAlarmForPartner(alarmId: String) {
         viewModelScope.launch {
             val partnerUid = _uiState.value.partnerUid.ifEmpty { return@launch }
-            repository.deleteAlarm(partnerUid, alarmId)
+            try {
+                repository.deleteAlarm(partnerUid, alarmId)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(errorMessage = "알람 삭제 실패: ${e.message}")
+            }
         }
     }
 

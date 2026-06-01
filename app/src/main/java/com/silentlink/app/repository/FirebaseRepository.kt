@@ -109,6 +109,23 @@ class FirebaseRepository {
         } catch (_: Exception) { null }
     }
 
+    suspend fun updateMuteStatus(uid: String, muted: Boolean) {
+        db.getReference("devices/$uid/status").updateChildren(
+            mapOf("isMuted" to muted, "lastUpdated" to System.currentTimeMillis())
+        ).await()
+    }
+
+    suspend fun updateVolumeStatus(uid: String, level: VolumeLevel) {
+        val muted = level == VolumeLevel.MUTE
+        db.getReference("devices/$uid/status").updateChildren(
+            mapOf(
+                "isMuted" to muted,
+                "volumeLevel" to level.name,
+                "lastUpdated" to System.currentTimeMillis()
+            )
+        ).await()
+    }
+
     fun observeMyCommands(myUid: String): Flow<Map<String, Any>> = callbackFlow {
         val ref = db.getReference("devices/$myUid/commands")
         val listener = object : ValueEventListener {

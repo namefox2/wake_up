@@ -26,7 +26,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
 import com.silentlink.app.ads.BannerAdView
+import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.ui.MainViewModel
@@ -39,6 +43,8 @@ fun HomeScreen(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val colors = MaterialTheme.colorScheme
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val canWriteSettings = remember { AudioControlManager(context).canWriteSettings() }
     var partnerCodeInput by remember { mutableStateOf("") }
 
     Column(
@@ -196,8 +202,16 @@ fun HomeScreen(viewModel: MainViewModel) {
                     isMuted = uiState.partnerStatus.isMuted,
                     isAccessAllowed = uiState.partnerStatus.isAccessAllowed,
                     partnerActivity = uiState.partnerStatus.activity,
+                    canWriteSettings = canWriteSettings,
                     onMuteToggle = { viewModel.sendMuteCommand(!uiState.partnerStatus.isMuted) },
-                    onVolumeSelect = { viewModel.sendVolumeCommand(it) }
+                    onVolumeSelect = { viewModel.sendVolumeCommand(it) },
+                    onGrantPermission = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        )
+                    }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -377,8 +391,10 @@ private fun MuteControlCard(
     isMuted: Boolean,
     isAccessAllowed: Boolean,
     partnerActivity: UserActivity,
+    canWriteSettings: Boolean,
     onMuteToggle: () -> Unit,
-    onVolumeSelect: (VolumeLevel) -> Unit
+    onVolumeSelect: (VolumeLevel) -> Unit,
+    onGrantPermission: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     Card(
@@ -387,6 +403,28 @@ private fun MuteControlCard(
         colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
+
+            if (!canWriteSettings) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(AccentBlue.copy(alpha = 0.1f))
+                        .clickable(onClick = onGrantPermission)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("⚙️", fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("시스템 설정 변경 권한 필요", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AccentBlue)
+                        Text("탭하여 허용 → SilentLink 켜기", fontSize = 11.sp, color = AccentBlue.copy(alpha = 0.7f))
+                    }
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(16.dp))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

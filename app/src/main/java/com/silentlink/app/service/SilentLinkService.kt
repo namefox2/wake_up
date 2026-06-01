@@ -65,7 +65,9 @@ class SilentLinkService : Service() {
             val myUid = repository.getCurrentUserId() ?: return@launch
             repository.observeMyCommands(myUid).collect { commands ->
                 commands["setMute"]?.let {
-                    audioManager.setMute(it as Boolean)
+                    val muted = it as? Boolean ?: return@let
+                    audioManager.setMute(muted)
+                    runCatching { repository.updateMuteStatus(myUid, muted) }
                 }
                 commands["setVolume"]?.let {
                     val levelName = it as? String ?: return@let
@@ -73,6 +75,7 @@ class SilentLinkService : Service() {
                         com.silentlink.app.model.VolumeLevel.valueOf(levelName)
                     }.getOrNull() ?: return@let
                     audioManager.setVolumeLevel(level)
+                    runCatching { repository.updateVolumeStatus(myUid, level) }
                 }
             }
         }

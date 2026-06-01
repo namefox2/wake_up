@@ -41,6 +41,14 @@ fun AlarmScreen(viewModel: MainViewModel) {
     val colors = MaterialTheme.colorScheme
     var showAddDialog by remember { mutableStateOf(false) }
     var editingAlarm by remember { mutableStateOf<RemoteAlarm?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -54,6 +62,7 @@ fun AlarmScreen(viewModel: MainViewModel) {
                 }
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = colors.background
     ) { padding ->
         Column(
