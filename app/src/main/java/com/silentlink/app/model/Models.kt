@@ -76,6 +76,15 @@ data class RemoteAlarm(
     }
 }
 
+data class DndConfig(
+    val isEnabled: Boolean = false,
+    val startHour: Int = 22,
+    val startMinute: Int = 0,
+    val endHour: Int = 7,
+    val endMinute: Int = 0,
+    val days: Set<Int> = setOf(1, 2, 3, 4, 5, 6, 7) // 기본: 매일
+)
+
 sealed class Command {
     data class SetMute(val muted: Boolean) : Command()
     data class SetVolume(val level: VolumeLevel) : Command()

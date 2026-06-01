@@ -126,22 +126,27 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     color = colors.onSurface.copy(alpha = 0.7f),
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    SUPPORT_TIERS.forEach { tier ->
-                        OutlinedButton(
-                            onClick = {
-                                billingManager.launchBillingFlow(context as Activity, tier.productId)
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
-                            border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SUPPORT_TIERS.chunked(2).forEach { rowTiers ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(text = tier.price, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            rowTiers.forEach { tier ->
+                                OutlinedButton(
+                                    onClick = {
+                                        billingManager.launchBillingFlow(context as Activity, tier.productId)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
+                                    border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(text = tier.displayName, fontSize = 11.sp, color = AccentBlue.copy(alpha = 0.7f))
+                                        Text(text = tier.price, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
                         }
                     }

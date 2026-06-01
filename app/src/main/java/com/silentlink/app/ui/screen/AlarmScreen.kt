@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.silentlink.app.ads.BannerAdView
 import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.ui.MainViewModel
 import com.silentlink.app.ui.theme.AccentBlue
@@ -55,13 +56,25 @@ fun AlarmScreen(viewModel: MainViewModel) {
         },
         containerColor = colors.background
     ) { padding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colors.surface),
+                contentAlignment = Alignment.Center
+            ) {
+                BannerAdView()
+            }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
             item {
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(
@@ -145,6 +158,7 @@ fun AlarmScreen(viewModel: MainViewModel) {
 
                 item { Spacer(modifier = Modifier.height(80.dp)) }
             }
+        }
         }
     }
 

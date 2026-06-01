@@ -2,11 +2,13 @@ package com.silentlink.app.ui.screen
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,13 +18,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import com.silentlink.app.ads.BannerAdView
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
@@ -35,6 +38,8 @@ import com.silentlink.app.ui.theme.SuccessGreen
 fun HomeScreen(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val colors = MaterialTheme.colorScheme
+    val clipboard = LocalClipboardManager.current
+    var partnerCodeInput by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -42,107 +47,150 @@ fun HomeScreen(viewModel: MainViewModel) {
             .background(colors.background)
             .verticalScroll(rememberScrollState())
     ) {
-        // AdMob 배너 (상단)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(colors.surface),
-            contentAlignment = Alignment.Center
-        ) {
+        // 광고 배너
+        Box(modifier = Modifier.fillMaxWidth().background(colors.surface), contentAlignment = Alignment.Center) {
             BannerAdView()
         }
 
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-            // 헤더
+
+            // ── 헤더 ──────────────────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "SilentLink",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.onBackground
-                )
+                Text("SilentLink", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colors.onBackground)
                 if (uiState.isConnected) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(SuccessGreen)
-                        )
+                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SuccessGreen))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "연결됨",
-                            fontSize = 13.sp,
-                            color = SuccessGreen
-                        )
+                        Text("연결됨", fontSize = 13.sp, color = SuccessGreen)
                     }
                 } else {
-                    Text(
-                        text = "연결 없음",
-                        fontSize = 13.sp,
-                        color = colors.onSurface.copy(alpha = 0.5f)
-                    )
+                    Text("연결 없음", fontSize = 13.sp, color = colors.onSurface.copy(alpha = 0.4f))
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
+            // ── 내 초대코드 카드 (항상 표시) ──────────────────────
+            if (uiState.myCode.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("내 초대 코드", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.55f))
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = uiState.myCode.chunked(3).joinToString(" - "),
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = AccentBlue,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        IconButton(onClick = { clipboard.setText(AnnotatedString(uiState.myCode)) }) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "복사", tint = colors.onSurface.copy(alpha = 0.5f))
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // ── 연결 안된 경우: 상대방 코드 입력 ─────────────────
             if (!uiState.isConnected) {
-                // 연결 안내 카드
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant)
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
+                        modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
-                            imageVector = Icons.Default.LinkOff,
+                            Icons.Default.LinkOff,
                             contentDescription = null,
-                            tint = colors.onSurface.copy(alpha = 0.4f),
-                            modifier = Modifier.size(48.dp)
+                            tint = colors.onSurface.copy(alpha = 0.35f),
+                            modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "아직 연결되지 않았습니다",
-                            fontSize = 16.sp,
-                            color = colors.onSurface,
-                            fontWeight = FontWeight.Medium
+                            "상대방 초대 코드를 입력하여 연결하세요",
+                            fontSize = 14.sp,
+                            color = colors.onSurface.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
                         )
-                        Text(
-                            text = "설정에서 상대방 초대 코드를 입력하여\n연결하세요",
-                            fontSize = 13.sp,
-                            color = colors.onSurface.copy(alpha = 0.6f),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.padding(top = 6.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = partnerCodeInput,
+                            onValueChange = {
+                                partnerCodeInput = it.uppercase().filter(Char::isLetterOrDigit).take(6)
+                            },
+                            placeholder = { Text("상대방 6자리 코드", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                            textStyle = LocalTextStyle.current.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 20.sp,
+                                letterSpacing = 3.sp,
+                                textAlign = TextAlign.Center
+                            ),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentBlue,
+                                cursorColor = AccentBlue
+                            ),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            keyboardActions = KeyboardActions(onGo = {
+                                if (partnerCodeInput.length == 6)
+                                    viewModel.connectWithPartnerCode(partnerCodeInput)
+                            })
                         )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { viewModel.connectWithPartnerCode(partnerCodeInput) },
+                            enabled = partnerCodeInput.length == 6,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentBlue,
+                                disabledContainerColor = AccentBlue.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Text("연결하기", fontWeight = FontWeight.SemiBold)
+                        }
+                        uiState.errorMessage?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                        }
                     }
                 }
             } else {
-                // 내 현재 상태 카드
+                // ── 내 현재 상태 ───────────────────────────────────
                 MyActivityCard(
                     currentActivity = uiState.myActivity,
                     onActivitySelect = { viewModel.setMyActivity(it) }
                 )
+                Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 상대방 상태 카드
+                // ── 상대방 상태 ────────────────────────────────────
                 PartnerStatusCard(
                     isMuted = uiState.partnerStatus.isMuted,
                     volumeLevel = uiState.partnerStatus.volumeLevel,
                     activity = uiState.partnerStatus.activity
                 )
+                Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 무음 제어 카드
+                // ── 무음 제어 ──────────────────────────────────────
                 MuteControlCard(
                     isMuted = uiState.partnerStatus.isMuted,
                     isAccessAllowed = uiState.partnerStatus.isAccessAllowed,
@@ -150,17 +198,13 @@ fun HomeScreen(viewModel: MainViewModel) {
                     onMuteToggle = { viewModel.sendMuteCommand(!uiState.partnerStatus.isMuted) },
                     onVolumeSelect = { viewModel.sendVolumeCommand(it) }
                 )
+                Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // ── 방해금지 요약 ──────────────────────────────────
+                DndSummaryCard(isEnabled = uiState.dndConfig.isEnabled)
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // 방해금지 요약 카드
-                DndSummaryCard(
-                    schedulesCount = uiState.dndSchedules.count { it.isEnabled }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 접근 허용 토글 카드
+                // ── 접근 허용 토글 ─────────────────────────────────
                 AccessToggleCard(
                     isAllowed = uiState.myStatus.isAccessAllowed,
                     onToggle = { viewModel.toggleMyAccess(it) }
@@ -170,11 +214,10 @@ fun HomeScreen(viewModel: MainViewModel) {
     }
 }
 
+// ── 내 현재 상태 카드 ──────────────────────────────────────────────
+
 @Composable
-private fun MyActivityCard(
-    currentActivity: UserActivity,
-    onActivitySelect: (UserActivity) -> Unit
-) {
+private fun MyActivityCard(currentActivity: UserActivity, onActivitySelect: (UserActivity) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val activities = UserActivity.entries.filter { it != UserActivity.NONE }
 
@@ -190,36 +233,29 @@ private fun MyActivityCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(
-                        text = "내 현재 상태",
-                        fontSize = 12.sp,
-                        color = colors.onSurface.copy(alpha = 0.6f)
-                    )
+                    Text("내 현재 상태", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.55f))
                     Text(
                         text = if (currentActivity == UserActivity.NONE) "상태 없음"
-                        else "${currentActivity.emoji} ${currentActivity.label}",
-                        fontSize = 16.sp,
+                               else "${currentActivity.emoji} ${currentActivity.label}",
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (currentActivity == UserActivity.NONE) colors.onSurface.copy(alpha = 0.4f)
-                        else DangerRed,
-                        modifier = Modifier.padding(top = 4.dp)
+                        color = if (currentActivity == UserActivity.NONE) colors.onSurface.copy(alpha = 0.35f) else DangerRed,
+                        modifier = Modifier.padding(top = 2.dp)
                     )
                 }
                 if (currentActivity != UserActivity.NONE) {
                     TextButton(
                         onClick = { onActivitySelect(UserActivity.NONE) },
-                        colors = ButtonDefaults.textButtonColors(contentColor = colors.onSurface.copy(alpha = 0.5f))
-                    ) {
-                        Text("해제", fontSize = 12.sp)
-                    }
+                        colors = ButtonDefaults.textButtonColors(contentColor = colors.onSurface.copy(alpha = 0.45f))
+                    ) { Text("해제", fontSize = 12.sp) }
                 }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 상태 그리드 (4열)
-            val rows = activities.chunked(4)
-            rows.forEach { rowItems ->
+            // 4열 그리드
+            activities.chunked(4).forEachIndexed { rowIdx, rowItems ->
+                if (rowIdx > 0) Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -227,50 +263,39 @@ private fun MyActivityCard(
                     rowItems.forEach { activity ->
                         val isSelected = currentActivity == activity
                         OutlinedButton(
-                            onClick = {
-                                onActivitySelect(if (isSelected) UserActivity.NONE else activity)
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(64.dp),
+                            onClick = { onActivitySelect(if (isSelected) UserActivity.NONE else activity) },
+                            modifier = Modifier.weight(1f).height(64.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 containerColor = if (isSelected) DangerRed.copy(alpha = 0.12f) else Color.Transparent,
-                                contentColor = if (isSelected) DangerRed else colors.onSurface.copy(alpha = 0.7f)
+                                contentColor = if (isSelected) DangerRed else colors.onSurface.copy(alpha = 0.65f)
                             ),
                             border = BorderStroke(
-                                width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) DangerRed else colors.outline.copy(alpha = 0.4f)
+                                if (isSelected) 1.5.dp else 1.dp,
+                                if (isSelected) DangerRed else colors.outline.copy(alpha = 0.35f)
                             ),
                             contentPadding = PaddingValues(4.dp)
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Text(text = activity.emoji, fontSize = 20.sp)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                Text(activity.emoji, fontSize = 20.sp)
                                 Text(
-                                    text = activity.label.replace("중", "\n중"),
+                                    activity.label.replace("중", "\n중"),
                                     fontSize = 9.sp,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    textAlign = TextAlign.Center,
                                     lineHeight = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                             }
                         }
                     }
-                    // 빈 칸 채우기
-                    repeat(4 - rowItems.size) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-                if (rows.indexOf(rowItems) < rows.size - 1) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    repeat(4 - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
             }
         }
     }
 }
+
+// ── 상대방 상태 카드 ──────────────────────────────────────────────
 
 @Composable
 private fun PartnerStatusCard(isMuted: Boolean, volumeLevel: VolumeLevel, activity: UserActivity) {
@@ -285,73 +310,50 @@ private fun PartnerStatusCard(isMuted: Boolean, volumeLevel: VolumeLevel, activi
         )
     ) {
         Column {
-            // 활동 상태 배너
             if (hasActivity) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            DangerRed.copy(alpha = 0.15f),
-                            RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-                        )
+                        .background(DangerRed.copy(alpha = 0.15f), RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = activity.emoji, fontSize = 18.sp)
+                    Text(activity.emoji, fontSize = 18.sp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
-                        Text(
-                            text = activity.label,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = DangerRed
-                        )
-                        Text(
-                            text = activity.description,
-                            fontSize = 11.sp,
-                            color = DangerRed.copy(alpha = 0.7f)
-                        )
+                        Text(activity.label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = DangerRed)
+                        Text(activity.description, fontSize = 11.sp, color = DangerRed.copy(alpha = 0.7f))
                     }
                 }
             }
-
             Row(
-                modifier = Modifier.padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column {
+                    Text("상대방 현재 상태", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.55f))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "상대방 현재 상태",
-                        fontSize = 12.sp,
-                        color = colors.onSurface.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (isMuted) "무음 모드" else "${volumeLevel.icon} ${volumeLevel.label}",
+                        if (isMuted) "무음 모드" else "${volumeLevel.icon} ${volumeLevel.label}",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (isMuted) DangerRed else colors.onBackground
                     )
                 }
                 Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isMuted) DangerRed.copy(alpha = 0.15f)
-                            else AccentBlue.copy(alpha = 0.15f)
-                        ),
+                    modifier = Modifier.size(52.dp).clip(CircleShape)
+                        .background(if (isMuted) DangerRed.copy(alpha = 0.15f) else AccentBlue.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (isMuted) "🔇" else volumeLevel.icon,
-                        fontSize = 24.sp
-                    )
+                    Text(if (isMuted) "🔇" else volumeLevel.icon, fontSize = 22.sp)
                 }
             }
         }
     }
 }
+
+// ── 무음 제어 카드 ────────────────────────────────────────────────
 
 @Composable
 private fun MuteControlCard(
@@ -373,141 +375,98 @@ private fun MuteControlCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "무음 제어",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.onBackground
-                )
+                Text("무음 제어", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onBackground)
                 Switch(
                     checked = isMuted,
                     onCheckedChange = { if (isAccessAllowed) onMuteToggle() },
                     enabled = isAccessAllowed,
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = DangerRed,
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = colors.outline
+                        checkedThumbColor = Color.White, checkedTrackColor = DangerRed,
+                        uncheckedThumbColor = Color.White, uncheckedTrackColor = colors.outline
                     )
                 )
             }
 
             if (!isAccessAllowed) {
-                Text(
-                    text = "상대방이 접근을 차단했습니다",
-                    fontSize = 12.sp,
-                    color = DangerRed,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                Text("상대방이 접근을 차단했습니다", fontSize = 12.sp, color = DangerRed, modifier = Modifier.padding(top = 4.dp))
             }
 
             if (partnerActivity != UserActivity.NONE) {
                 Row(
                     modifier = Modifier
-                        .padding(top = 8.dp)
-                        .fillMaxWidth()
+                        .padding(top = 8.dp).fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                         .background(DangerRed.copy(alpha = 0.08f))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "⚠️", fontSize = 13.sp)
+                    Text("⚠️", fontSize = 13.sp)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "상대방이 ${partnerActivity.label}이에요. 소리를 켜도 될까요?",
-                        fontSize = 12.sp,
-                        color = DangerRed
+                        "상대방이 ${partnerActivity.label}이에요. 소리를 켜도 될까요?",
+                        fontSize = 12.sp, color = DangerRed
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "볼륨 조절",
-                fontSize = 12.sp,
-                color = colors.onSurface.copy(alpha = 0.6f)
-            )
+            Text("볼륨 조절", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.55f))
             Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 VolumeLevel.entries.forEach { level ->
-                    VolumeButton(
-                        level = level,
-                        enabled = isAccessAllowed,
+                    OutlinedButton(
                         onClick = { onVolumeSelect(level) },
-                        modifier = Modifier.weight(1f)
-                    )
+                        enabled = isAccessAllowed,
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AccentBlue,
+                            disabledContentColor = colors.onSurface.copy(alpha = 0.3f)
+                        ),
+                        contentPadding = PaddingValues(4.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(level.icon, fontSize = 16.sp)
+                            Text(level.label, fontSize = 10.sp)
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-@Composable
-private fun VolumeButton(
-    level: VolumeLevel,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val colors = MaterialTheme.colorScheme
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.height(56.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = AccentBlue,
-            disabledContentColor = colors.onSurface.copy(alpha = 0.3f)
-        ),
-        border = ButtonDefaults.outlinedButtonBorder.copy(
-            width = 1.dp
-        )
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = level.icon, fontSize = 16.sp)
-            Text(text = level.label, fontSize = 9.sp)
-        }
-    }
-}
+// ── 방해금지 요약 카드 ────────────────────────────────────────────
 
 @Composable
-private fun DndSummaryCard(schedulesCount: Int) {
+private fun DndSummaryCard(isEnabled: Boolean) {
     val colors = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant)
     ) {
-        Row(
-            modifier = Modifier.padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = Icons.Default.Schedule,
+                Icons.Default.Schedule,
                 contentDescription = null,
-                tint = if (schedulesCount > 0) DangerRed else colors.onSurface.copy(alpha = 0.4f),
+                tint = if (isEnabled) DangerRed else colors.onSurface.copy(alpha = 0.35f),
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column {
+                Text("방해금지 스케줄", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onBackground)
                 Text(
-                    text = "방해금지 스케줄",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.onBackground
-                )
-                Text(
-                    text = if (schedulesCount > 0) "활성 스케줄 ${schedulesCount}개" else "설정된 스케줄 없음",
+                    if (isEnabled) "활성 중 – 강제 무음 해제 차단됨" else "비활성",
                     fontSize = 12.sp,
-                    color = if (schedulesCount > 0) DangerRed else colors.onSurface.copy(alpha = 0.5f)
+                    color = if (isEnabled) DangerRed else colors.onSurface.copy(alpha = 0.45f)
                 )
             }
         }
     }
 }
+
+// ── 접근 허용 토글 카드 ───────────────────────────────────────────
 
 @Composable
 private fun AccessToggleCard(isAllowed: Boolean, onToggle: (Boolean) -> Unit) {
@@ -516,26 +475,22 @@ private fun AccessToggleCard(isAllowed: Boolean, onToggle: (Boolean) -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isAllowed) AccentBlue.copy(alpha = 0.1f)
-            else DangerRed.copy(alpha = 0.1f)
+            containerColor = if (isAllowed) AccentBlue.copy(alpha = 0.1f) else DangerRed.copy(alpha = 0.1f)
         )
     ) {
         Row(
-            modifier = Modifier
-                .padding(20.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.padding(20.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text(
-                    text = "내 기기 접근 허용",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    "내 기기 접근 허용",
+                    fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     color = if (isAllowed) AccentBlue else DangerRed
                 )
                 Text(
-                    text = if (isAllowed) "상대방이 내 기기를 제어할 수 있습니다"
+                    if (isAllowed) "상대방이 내 기기를 제어할 수 있습니다"
                     else "모든 원격 제어가 차단됩니다",
                     fontSize = 12.sp,
                     color = if (isAllowed) AccentBlue.copy(alpha = 0.7f) else DangerRed.copy(alpha = 0.7f)
@@ -545,10 +500,8 @@ private fun AccessToggleCard(isAllowed: Boolean, onToggle: (Boolean) -> Unit) {
                 checked = isAllowed,
                 onCheckedChange = onToggle,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = AccentBlue,
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = DangerRed.copy(alpha = 0.5f)
+                    checkedThumbColor = Color.White, checkedTrackColor = AccentBlue,
+                    uncheckedThumbColor = Color.White, uncheckedTrackColor = DangerRed.copy(alpha = 0.5f)
                 )
             )
         }

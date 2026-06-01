@@ -17,6 +17,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import com.silentlink.app.model.AppTheme
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -56,6 +59,13 @@ class MainActivity : ComponentActivity() {
             val isOnboarded by viewModel.isOnboarded.collectAsState()
 
             SilentLinkTheme(appTheme = uiState.theme) {
+                val view = LocalView.current
+                if (!view.isInEditMode) {
+                    SideEffect {
+                        WindowCompat.getInsetsController(window, view)
+                            .isAppearanceLightStatusBars = uiState.theme == AppTheme.LIGHT
+                    }
+                }
                 if (!isOnboarded) {
                     OnboardingScreen(viewModel = viewModel)
                 } else {
