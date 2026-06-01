@@ -185,7 +185,7 @@ class FirebaseRepository {
             "label" to alarm.label,
             "hour" to alarm.hour,
             "minute" to alarm.minute,
-            "days" to alarm.days.toList(),
+            "days" to alarm.days.sorted().joinToString(","),  // String이 List보다 역직렬화 안정적
             "excludeHolidays" to alarm.excludeHolidays,
             "isEnabled" to alarm.isEnabled,
             "createdAt" to alarm.createdAt
@@ -209,9 +209,19 @@ class FirebaseRepository {
                         val label = child.child("label").getValue(String::class.java) ?: ""
                         val hour = (child.child("hour").getValue(Long::class.java) ?: 7L).toInt()
                         val minute = (child.child("minute").getValue(Long::class.java) ?: 0L).toInt()
-                        @Suppress("UNCHECKED_CAST")
-                        val daysList = child.child("days").getValue(List::class.java) as? List<Long> ?: emptyList()
-                        val days = daysList.map { it.toInt() }.toSet()
+                        // days: 문자열 "1,2,3,4,5" 형식 또는 예전 List 형식 모두 처리
+                        val daysNode = child.child("days")
+                        val days: Set<Int> = when {
+                            daysNode.getValue(String::class.java) != null -> {
+                                val s = daysNode.getValue(String::class.java)!!
+                                s.split(",").filter { it.isNotBlank() }.mapNotNull { it.trim().toIntOrNull() }.toSet()
+                            }
+                            else -> {
+                                @Suppress("UNCHECKED_CAST")
+                                val raw = daysNode.getValue(List::class.java) as? List<*> ?: emptyList<Any>()
+                                raw.mapNotNull { (it as? Long)?.toInt() ?: (it as? Int) }.toSet()
+                            }
+                        }
                         val excludeHolidays = child.child("excludeHolidays").getValue(Boolean::class.java) ?: false
                         val isEnabled = child.child("isEnabled").getValue(Boolean::class.java) ?: true
                         val createdAt = child.child("createdAt").getValue(Long::class.java) ?: 0L

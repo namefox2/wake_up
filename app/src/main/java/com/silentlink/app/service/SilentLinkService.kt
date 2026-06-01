@@ -58,6 +58,14 @@ class SilentLinkService : Service() {
         }
         startListeningCommands()
         startListeningAlarms()
+        syncActualMuteState()
+    }
+
+    private fun syncActualMuteState() {
+        scope.launch {
+            val myUid = repository.getCurrentUserId() ?: return@launch
+            runCatching { repository.updateMuteStatus(myUid, audioManager.isMuted()) }
+        }
     }
 
     private fun startListeningCommands() {
@@ -66,16 +74,17 @@ class SilentLinkService : Service() {
             repository.observeMyCommands(myUid).collect { commands ->
                 commands["setMute"]?.let {
                     val muted = it as? Boolean ?: return@let
-                    audioManager.setMute(muted)
-                    runCatching { repository.updateMuteStatus(myUid, muted) }
+                    val ok = audioManager.setMute(muted)
+                    // 실제 적용된 상태를 Firebase에 반영
+                    if (ok) runCatching { repository.updateMuteStatus(myUid, audioManager.isMuted()) }
                 }
                 commands["setVolume"]?.let {
                     val levelName = it as? String ?: return@let
                     val level = runCatching {
                         com.silentlink.app.model.VolumeLevel.valueOf(levelName)
                     }.getOrNull() ?: return@let
-                    audioManager.setVolumeLevel(level)
-                    runCatching { repository.updateVolumeStatus(myUid, level) }
+                    val ok = audioManager.setVolumeLevel(level)
+                    if (ok) runCatching { repository.updateVolumeStatus(myUid, level) }
                 }
             }
         }

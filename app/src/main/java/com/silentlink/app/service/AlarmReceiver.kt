@@ -29,10 +29,10 @@ class AlarmReceiver : BroadcastReceiver() {
 
         showNotification(context, alarmId, label)
 
-        // 반복 알람이면 다음 발생 시간으로 재스케줄
+        // 활성 알람은 항상 다음 발생 시간으로 재스케줄 (매일/특정요일 모두)
         alarmJson?.let {
             val alarm = runCatching { Gson().fromJson(it, RemoteAlarm::class.java) }.getOrNull()
-            if (alarm != null && alarm.isEnabled && alarm.days.isNotEmpty()) {
+            if (alarm != null && alarm.isEnabled) {
                 AlarmScheduler(context).schedule(alarm)
             }
         }
