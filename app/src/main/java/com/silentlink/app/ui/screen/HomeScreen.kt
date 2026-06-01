@@ -200,11 +200,10 @@ fun HomeScreen(viewModel: MainViewModel) {
 
                 // ── 무음 제어 ──────────────────────────────────────
                 MuteControlCard(
-                    isMuted = uiState.partnerStatus.isMuted,
+                    volumeLevel = uiState.partnerStatus.volumeLevel,
                     isAccessAllowed = uiState.partnerStatus.isAccessAllowed,
                     partnerActivity = uiState.partnerStatus.activity,
                     canWriteSettings = canWriteSettings,
-                    onMuteToggle = { viewModel.sendMuteCommand(!uiState.partnerStatus.isMuted) },
                     onVolumeSelect = { viewModel.sendVolumeCommand(it) },
                     onGrantPermission = {
                         context.startActivity(
@@ -322,6 +321,11 @@ private fun PartnerStatusCard(
 ) {
     val colors = MaterialTheme.colorScheme
     val hasActivity = activity != UserActivity.NONE
+    val statusColor = when (volumeLevel) {
+        VolumeLevel.MUTE    -> DangerRed
+        VolumeLevel.VIBRATE -> AccentBlue
+        VolumeLevel.SOUND   -> SuccessGreen
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -356,19 +360,19 @@ private fun PartnerStatusCard(
                     Text("상대방 현재 상태", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.55f))
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        if (isMuted) "무음 모드" else "${volumeLevel.icon} ${volumeLevel.label}",
+                        "${volumeLevel.icon} ${volumeLevel.label}",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isMuted) DangerRed else colors.onBackground
+                        color = statusColor
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier.size(52.dp).clip(CircleShape)
-                            .background(if (isMuted) DangerRed.copy(alpha = 0.15f) else AccentBlue.copy(alpha = 0.15f)),
+                            .background(statusColor.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(if (isMuted) "🔇" else volumeLevel.icon, fontSize = 22.sp)
+                        Text(volumeLevel.icon, fontSize = 22.sp)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(onClick = onRefresh, modifier = Modifier.size(36.dp)) {
@@ -389,15 +393,33 @@ private fun PartnerStatusCard(
 
 @Composable
 private fun MuteControlCard(
-    isMuted: Boolean,
+    volumeLevel: VolumeLevel,
     isAccessAllowed: Boolean,
     partnerActivity: UserActivity,
     canWriteSettings: Boolean,
-    onMuteToggle: () -> Unit,
     onVolumeSelect: (VolumeLevel) -> Unit,
     onGrantPermission: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
+    var showMuteConfirm by remember { mutableStateOf(false) }
+
+    if (showMuteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showMuteConfirm = false },
+            title = { Text("무음으로 전환", fontWeight = FontWeight.Bold) },
+            text = { Text("상대방 기기를 무음 상태로 전환할까요?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onVolumeSelect(VolumeLevel.MUTE)
+                    showMuteConfirm = false
+                }) { Text("전환", color = DangerRed, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMuteConfirm = false }) { Text("취소") }
+            }
+        )
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -426,22 +448,7 @@ private fun MuteControlCard(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("무음 제어", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onBackground)
-                Switch(
-                    checked = isMuted,
-                    onCheckedChange = { if (isAccessAllowed) onMuteToggle() },
-                    enabled = isAccessAllowed,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White, checkedTrackColor = DangerRed,
-                        uncheckedThumbColor = Color.White, uncheckedTrackColor = colors.outline
-                    )
-                )
-            }
+            Text("소리 제어", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onBackground)
 
             if (!isAccessAllowed) {
                 Text("상대방이 접근을 차단했습니다", fontSize = 12.sp, color = DangerRed, modifier = Modifier.padding(top = 4.dp))
@@ -465,25 +472,38 @@ private fun MuteControlCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("볼륨 조절", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.55f))
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 VolumeLevel.entries.forEach { level ->
+                    val isSelected = volumeLevel == level
+                    val levelColor = when (level) {
+                        VolumeLevel.MUTE    -> DangerRed
+                        VolumeLevel.VIBRATE -> AccentBlue
+                        VolumeLevel.SOUND   -> SuccessGreen
+                    }
                     OutlinedButton(
-                        onClick = { onVolumeSelect(level) },
+                        onClick = {
+                            if (!isAccessAllowed) return@OutlinedButton
+                            if (level == VolumeLevel.MUTE) showMuteConfirm = true
+                            else onVolumeSelect(level)
+                        },
                         enabled = isAccessAllowed,
-                        modifier = Modifier.weight(1f).height(56.dp),
+                        modifier = Modifier.weight(1f).height(64.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AccentBlue,
+                            containerColor = if (isSelected) levelColor.copy(alpha = 0.12f) else Color.Transparent,
+                            contentColor = if (isSelected) levelColor else colors.onSurface.copy(alpha = 0.65f),
                             disabledContentColor = colors.onSurface.copy(alpha = 0.3f)
+                        ),
+                        border = BorderStroke(
+                            if (isSelected) 1.5.dp else 1.dp,
+                            if (isSelected) levelColor else colors.outline.copy(alpha = 0.35f)
                         ),
                         contentPadding = PaddingValues(4.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(level.icon, fontSize = 16.sp)
-                            Text(level.label, fontSize = 10.sp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Text(level.icon, fontSize = 20.sp)
+                            Text(level.label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                         }
                     }
                 }

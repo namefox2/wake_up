@@ -2,7 +2,7 @@ package com.silentlink.app.model
 
 data class DeviceStatus(
     val isMuted: Boolean = false,
-    val volumeLevel: VolumeLevel = VolumeLevel.MEDIUM,
+    val volumeLevel: VolumeLevel = VolumeLevel.SOUND,
     val isAccessAllowed: Boolean = true,
     val isOnline: Boolean = false,
     val lastUpdated: Long = 0L,
@@ -23,9 +23,8 @@ enum class UserActivity(val label: String, val emoji: String, val description: S
 
 enum class VolumeLevel(val label: String, val icon: String, val value: Int) {
     MUTE("무음", "🔇", 0),
-    LOW("작게", "🔉", 25),
-    MEDIUM("보통", "🔊", 60),
-    MAX("최대", "📢", 100)
+    VIBRATE("진동", "📳", 0),
+    SOUND("소리", "🔊", 60)
 }
 
 data class DndSchedule(

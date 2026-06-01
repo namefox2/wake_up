@@ -42,7 +42,7 @@ class FirebaseRepository {
         db.getReference("devices/$uid/status").setValue(
             mapOf(
                 "isMuted" to false,
-                "volumeLevel" to "MEDIUM",
+                "volumeLevel" to "SOUND",
                 "isAccessAllowed" to true,
                 "isOnline" to true,
                 "lastUpdated" to System.currentTimeMillis(),
@@ -67,7 +67,7 @@ class FirebaseRepository {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val isMuted = snapshot.child("isMuted").getValue(Boolean::class.java) ?: false
-                val volumeStr = snapshot.child("volumeLevel").getValue(String::class.java) ?: "MEDIUM"
+                val volumeStr = snapshot.child("volumeLevel").getValue(String::class.java) ?: "SOUND"
                 val isAccessAllowed = snapshot.child("isAccessAllowed").getValue(Boolean::class.java) ?: true
                 val isOnline = snapshot.child("isOnline").getValue(Boolean::class.java) ?: false
                 val lastUpdated = snapshot.child("lastUpdated").getValue(Long::class.java) ?: 0L
@@ -75,7 +75,7 @@ class FirebaseRepository {
                 trySend(
                     DeviceStatus(
                         isMuted = isMuted,
-                        volumeLevel = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrDefault(VolumeLevel.MEDIUM),
+                        volumeLevel = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrDefault(VolumeLevel.SOUND),
                         isAccessAllowed = isAccessAllowed,
                         isOnline = isOnline,
                         lastUpdated = lastUpdated,
@@ -93,14 +93,14 @@ class FirebaseRepository {
         return try {
             val snapshot = db.getReference("devices/$partnerUid/status").get().await()
             val isMuted = snapshot.child("isMuted").getValue(Boolean::class.java) ?: false
-            val volumeStr = snapshot.child("volumeLevel").getValue(String::class.java) ?: "MEDIUM"
+            val volumeStr = snapshot.child("volumeLevel").getValue(String::class.java) ?: "SOUND"
             val isAccessAllowed = snapshot.child("isAccessAllowed").getValue(Boolean::class.java) ?: true
             val isOnline = snapshot.child("isOnline").getValue(Boolean::class.java) ?: false
             val lastUpdated = snapshot.child("lastUpdated").getValue(Long::class.java) ?: 0L
             val activityStr = snapshot.child("activity").getValue(String::class.java) ?: "NONE"
             DeviceStatus(
                 isMuted = isMuted,
-                volumeLevel = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrDefault(VolumeLevel.MEDIUM),
+                volumeLevel = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrDefault(VolumeLevel.SOUND),
                 isAccessAllowed = isAccessAllowed,
                 isOnline = isOnline,
                 lastUpdated = lastUpdated,
@@ -116,7 +116,7 @@ class FirebaseRepository {
     }
 
     suspend fun updateVolumeStatus(uid: String, level: VolumeLevel) {
-        val muted = level == VolumeLevel.MUTE
+        val muted = level == VolumeLevel.MUTE || level == VolumeLevel.VIBRATE
         db.getReference("devices/$uid/status").updateChildren(
             mapOf(
                 "isMuted" to muted,

@@ -18,10 +18,12 @@ class AudioControlManager(private val context: Context) {
                audioManager.ringerMode == AudioManager.RINGER_MODE_VIBRATE
     }
 
-    fun getCurrentVolumePercent(): Int {
-        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
-        val current = audioManager.getStreamVolume(AudioManager.STREAM_RING)
-        return if (max > 0) (current * 100) / max else 0
+    fun getCurrentVolumeLevel(): VolumeLevel {
+        return when (audioManager.ringerMode) {
+            AudioManager.RINGER_MODE_SILENT  -> VolumeLevel.MUTE
+            AudioManager.RINGER_MODE_VIBRATE -> VolumeLevel.VIBRATE
+            else                             -> VolumeLevel.SOUND
+        }
     }
 
     fun setMute(muted: Boolean): Boolean {
@@ -44,12 +46,16 @@ class AudioControlManager(private val context: Context) {
         if (!canWriteSettings()) return false
         return try {
             when (level) {
-                VolumeLevel.MUTE -> setMute(true)
-                else -> {
+                VolumeLevel.MUTE    -> setMute(true)
+                VolumeLevel.VIBRATE -> {
+                    audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+                    true
+                }
+                VolumeLevel.SOUND   -> {
                     audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
                     val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
-                    val targetVolume = (max * level.value) / 100
-                    audioManager.setStreamVolume(AudioManager.STREAM_RING, targetVolume, 0)
+                    val target = (max * level.value) / 100
+                    if (target > 0) audioManager.setStreamVolume(AudioManager.STREAM_RING, target, 0)
                     true
                 }
             }
