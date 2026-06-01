@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "000000000000",
+    "project_number": "687417146139",
     "project_id": "silentlink-app",
-    "storage_bucket": "silentlink-app.appspot.com"
+    "storage_bucket": "silentlink-app.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+        "mobilesdk_app_id": "1:687417146139:android:eec942cd823b576cc731be",
         "android_client_info": {
           "package_name": "com.silentlink.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "YOUR_API_KEY_HERE"
+          "current_key": "AIzaSyCTtw3LhEx8QFp-E7m1oUojM3VVn0ndACg"
         }
       ],
       "services": {
