@@ -500,7 +500,7 @@ private fun DndSummaryCard(schedulesCount: Int) {
                     color = colors.onBackground
                 )
                 Text(
-                    text = if (schedulesCount > 0) "활성 스케줄 $schedulesCount개" else "설정된 스케줄 없음",
+                    text = if (schedulesCount > 0) "활성 스케줄 ${schedulesCount}개" else "설정된 스케줄 없음",
                     fontSize = 12.sp,
                     color = if (schedulesCount > 0) DangerRed else colors.onSurface.copy(alpha = 0.5f)
                 )
