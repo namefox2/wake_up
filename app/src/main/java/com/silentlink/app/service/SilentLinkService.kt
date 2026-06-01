@@ -10,7 +10,9 @@ import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.silentlink.app.MainActivity
+import com.silentlink.app.manager.AlarmScheduler
 import com.silentlink.app.manager.AudioControlManager
+import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.repository.FirebaseRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +24,10 @@ class SilentLinkService : Service() {
     private val repository = FirebaseRepository()
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private lateinit var audioManager: AudioControlManager
+    private lateinit var alarmScheduler: AlarmScheduler
     private var commandListenerJob: Job? = null
+    private var alarmListenerJob: Job? = null
+    private val scheduledAlarmIds = mutableSetOf<String>()
 
     companion object {
         const val CHANNEL_ID = "silentlink_service"
@@ -41,9 +46,11 @@ class SilentLinkService : Service() {
     override fun onCreate() {
         super.onCreate()
         audioManager = AudioControlManager(this)
+        alarmScheduler = AlarmScheduler(this)
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
         startListeningCommands()
+        startListeningAlarms()
     }
 
     private fun startListeningCommands() {
@@ -59,6 +66,25 @@ class SilentLinkService : Service() {
                         com.silentlink.app.model.VolumeLevel.valueOf(levelName)
                     }.getOrNull() ?: return@let
                     audioManager.setVolumeLevel(level)
+                }
+            }
+        }
+    }
+
+    private fun startListeningAlarms() {
+        alarmListenerJob = scope.launch {
+            val myUid = repository.getCurrentUserId() ?: return@launch
+            repository.observeAlarms(myUid).collect { alarms ->
+                // 삭제된 알람 취소
+                val newIds = alarms.map { it.id }.toSet()
+                scheduledAlarmIds.forEach { id ->
+                    if (id !in newIds) alarmScheduler.cancel(id)
+                }
+                scheduledAlarmIds.clear()
+                // 활성 알람 스케줄
+                alarms.filter { it.isEnabled }.forEach { alarm ->
+                    alarmScheduler.schedule(alarm)
+                    scheduledAlarmIds.add(alarm.id)
                 }
             }
         }
@@ -93,6 +119,7 @@ class SilentLinkService : Service() {
 
     override fun onDestroy() {
         commandListenerJob?.cancel()
+        alarmListenerJob?.cancel()
         super.onDestroy()
     }
 }

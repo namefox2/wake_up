@@ -55,6 +55,27 @@ enum class AppTheme(val displayName: String) {
     PINK("핑크")
 }
 
+data class RemoteAlarm(
+    val id: String = "",
+    val label: String = "",
+    val hour: Int = 7,       // 0-23
+    val minute: Int = 0,
+    val days: Set<Int> = setOf(1, 2, 3, 4, 5), // 1=월..7=일, 빈 Set=매일
+    val excludeHolidays: Boolean = false,
+    val isEnabled: Boolean = true,
+    val createdAt: Long = 0L
+) {
+    fun displayTime(): String {
+        val h12 = when {
+            hour == 0 -> 12
+            hour > 12 -> hour - 12
+            else -> hour
+        }
+        val amPm = if (hour < 12) "오전" else "오후"
+        return "$amPm %d:%02d".format(h12, minute)
+    }
+}
+
 sealed class Command {
     data class SetMute(val muted: Boolean) : Command()
     data class SetVolume(val level: VolumeLevel) : Command()

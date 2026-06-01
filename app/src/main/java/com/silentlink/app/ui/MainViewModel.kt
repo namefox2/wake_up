@@ -13,6 +13,7 @@ import com.silentlink.app.manager.DndManager
 import com.silentlink.app.model.AppTheme
 import com.silentlink.app.model.DeviceStatus
 import com.silentlink.app.model.DndSchedule
+import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.repository.FirebaseRepository
@@ -79,6 +80,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
 
+            listenToMyAlarms(myUid)
             if (partnerUid != null) {
                 listenToPartnerStatus(partnerUid)
             }
@@ -145,6 +147,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.observePartnerStatus(partnerUid).collect { status ->
                 _uiState.value = _uiState.value.copy(partnerStatus = status)
+            }
+        }
+        // 내가 상대방에게 설정한 알람 관찰
+        viewModelScope.launch {
+            repository.observeAlarms(partnerUid).collect { alarms ->
+                _uiState.value = _uiState.value.copy(alarmsForPartner = alarms)
+            }
+        }
+    }
+
+    private fun listenToMyAlarms(myUid: String) {
+        viewModelScope.launch {
+            repository.observeAlarms(myUid).collect { alarms ->
+                _uiState.value = _uiState.value.copy(alarmsFromPartner = alarms)
             }
         }
     }
@@ -232,6 +248,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ── 알람 ────────────────────────────────────────────────────
+
+    fun addAlarmForPartner(alarm: RemoteAlarm) {
+        viewModelScope.launch {
+            val partnerUid = _uiState.value.partnerUid.ifEmpty { return@launch }
+            repository.addAlarm(partnerUid, alarm)
+        }
+    }
+
+    fun updateAlarmForPartner(alarm: RemoteAlarm) {
+        viewModelScope.launch {
+            val partnerUid = _uiState.value.partnerUid.ifEmpty { return@launch }
+            repository.updateAlarm(partnerUid, alarm)
+        }
+    }
+
+    fun deleteAlarmForPartner(alarmId: String) {
+        viewModelScope.launch {
+            val partnerUid = _uiState.value.partnerUid.ifEmpty { return@launch }
+            repository.deleteAlarm(partnerUid, alarmId)
+        }
+    }
+
+    fun toggleAlarmForPartner(alarmId: String, enabled: Boolean) {
+        val alarm = _uiState.value.alarmsForPartner.find { it.id == alarmId } ?: return
+        updateAlarmForPartner(alarm.copy(isEnabled = enabled))
+    }
+
     fun setMyActivity(activity: UserActivity) {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
@@ -254,6 +298,8 @@ data class SilentLinkUiState(
     val partnerStatus: DeviceStatus = DeviceStatus(),
     val myActivity: UserActivity = UserActivity.NONE,
     val dndSchedules: List<DndSchedule> = emptyList(),
+    val alarmsForPartner: List<RemoteAlarm> = emptyList(),
+    val alarmsFromPartner: List<RemoteAlarm> = emptyList(),
     val theme: AppTheme = AppTheme.DARK,
     val errorMessage: String? = null
 )

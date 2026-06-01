@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +25,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.silentlink.app.ads.AdMobManager
 import com.silentlink.app.ui.MainViewModel
+import com.silentlink.app.ui.screen.AlarmScreen
 import com.silentlink.app.ui.screen.DndScreen
 import com.silentlink.app.ui.screen.HomeScreen
 import com.silentlink.app.ui.screen.OnboardingScreen
@@ -35,6 +37,7 @@ data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
 val NAV_ITEMS = listOf(
     NavItem("home", "홈", Icons.Default.Home),
+    NavItem("alarm", "알람", Icons.Default.Alarm),
     NavItem("dnd", "방해금지", Icons.Default.Schedule),
     NavItem("settings", "설정", Icons.Default.Settings)
 )
@@ -114,6 +117,7 @@ fun MainNavigation(viewModel: MainViewModel) {
         Box(modifier = Modifier.padding(innerPadding)) {
             NavHost(navController = navController, startDestination = "home") {
                 composable("home") { HomeScreen(viewModel = viewModel) }
+                composable("alarm") { AlarmScreen(viewModel = viewModel) }
                 composable("dnd") { DndScreen(viewModel = viewModel) }
                 composable("settings") { SettingsScreen(viewModel = viewModel) }
             }

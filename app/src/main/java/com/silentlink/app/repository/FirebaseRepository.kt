@@ -5,9 +5,11 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import com.google.gson.Gson
 import com.silentlink.app.model.ConnectionInfo
 import com.silentlink.app.model.DeviceStatus
 import com.silentlink.app.model.DndSchedule
+import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
 import kotlinx.coroutines.channels.awaitClose
@@ -135,5 +137,55 @@ class FirebaseRepository {
 
     suspend fun updateMyActivity(myUid: String, activity: UserActivity) {
         db.getReference("devices/$myUid/status/activity").setValue(activity.name).await()
+    }
+
+    // ── 알람 CRUD ──────────────────────────────────────────────
+
+    suspend fun addAlarm(targetUid: String, alarm: RemoteAlarm) {
+        val ref = db.getReference("devices/$targetUid/alarms/${alarm.id}")
+        val map = mapOf(
+            "id" to alarm.id,
+            "label" to alarm.label,
+            "hour" to alarm.hour,
+            "minute" to alarm.minute,
+            "days" to alarm.days.toList(),
+            "excludeHolidays" to alarm.excludeHolidays,
+            "isEnabled" to alarm.isEnabled,
+            "createdAt" to alarm.createdAt
+        )
+        ref.setValue(map).await()
+    }
+
+    suspend fun updateAlarm(targetUid: String, alarm: RemoteAlarm) = addAlarm(targetUid, alarm)
+
+    suspend fun deleteAlarm(targetUid: String, alarmId: String) {
+        db.getReference("devices/$targetUid/alarms/$alarmId").removeValue().await()
+    }
+
+    fun observeAlarms(uid: String): Flow<List<RemoteAlarm>> = callbackFlow {
+        val ref = db.getReference("devices/$uid/alarms")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val alarms = snapshot.children.mapNotNull { child ->
+                    runCatching {
+                        val id = child.child("id").getValue(String::class.java) ?: return@runCatching null
+                        val label = child.child("label").getValue(String::class.java) ?: ""
+                        val hour = (child.child("hour").getValue(Long::class.java) ?: 7L).toInt()
+                        val minute = (child.child("minute").getValue(Long::class.java) ?: 0L).toInt()
+                        @Suppress("UNCHECKED_CAST")
+                        val daysList = child.child("days").getValue(List::class.java) as? List<Long> ?: emptyList()
+                        val days = daysList.map { it.toInt() }.toSet()
+                        val excludeHolidays = child.child("excludeHolidays").getValue(Boolean::class.java) ?: false
+                        val isEnabled = child.child("isEnabled").getValue(Boolean::class.java) ?: true
+                        val createdAt = child.child("createdAt").getValue(Long::class.java) ?: 0L
+                        RemoteAlarm(id, label, hour, minute, days, excludeHolidays, isEnabled, createdAt)
+                    }.getOrNull()
+                }
+                trySend(alarms)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
     }
 }
