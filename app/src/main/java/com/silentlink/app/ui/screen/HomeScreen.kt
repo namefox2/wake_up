@@ -1,5 +1,6 @@
 package com.silentlink.app.ui.screen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -19,14 +20,16 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import com.silentlink.app.ads.BannerAdView
+import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.ui.MainViewModel
 import com.silentlink.app.ui.theme.AccentBlue
 import com.silentlink.app.ui.theme.DangerRed
 import com.silentlink.app.ui.theme.SuccessGreen
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun HomeScreen(viewModel: MainViewModel) {
@@ -122,8 +125,20 @@ fun HomeScreen(viewModel: MainViewModel) {
                     }
                 }
             } else {
+                // 내 현재 상태 카드
+                MyActivityCard(
+                    currentActivity = uiState.myActivity,
+                    onActivitySelect = { viewModel.setMyActivity(it) }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // 상대방 상태 카드
-                StatusCard(uiState.partnerStatus.isMuted, uiState.partnerStatus.volumeLevel)
+                PartnerStatusCard(
+                    isMuted = uiState.partnerStatus.isMuted,
+                    volumeLevel = uiState.partnerStatus.volumeLevel,
+                    activity = uiState.partnerStatus.activity
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -131,7 +146,8 @@ fun HomeScreen(viewModel: MainViewModel) {
                 MuteControlCard(
                     isMuted = uiState.partnerStatus.isMuted,
                     isAccessAllowed = uiState.partnerStatus.isAccessAllowed,
-                    onMuteToggle = { viewModel.sendMuteCommand(!uiState.partnerStatus.isMuted)  },
+                    partnerActivity = uiState.partnerStatus.activity,
+                    onMuteToggle = { viewModel.sendMuteCommand(!uiState.partnerStatus.isMuted) },
                     onVolumeSelect = { viewModel.sendVolumeCommand(it) }
                 )
 
@@ -155,45 +171,183 @@ fun HomeScreen(viewModel: MainViewModel) {
 }
 
 @Composable
-private fun StatusCard(isMuted: Boolean, volumeLevel: VolumeLevel) {
+private fun MyActivityCard(
+    currentActivity: UserActivity,
+    onActivitySelect: (UserActivity) -> Unit
+) {
     val colors = MaterialTheme.colorScheme
+    val activities = UserActivity.entries.filter { it != UserActivity.NONE }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant)
     ) {
-        Row(
-            modifier = Modifier.padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "상대방 현재 상태",
-                    fontSize = 12.sp,
-                    color = colors.onSurface.copy(alpha = 0.6f)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = if (isMuted) "무음 모드" else "${volumeLevel.icon} ${volumeLevel.label}",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isMuted) DangerRed else colors.onBackground
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isMuted) DangerRed.copy(alpha = 0.15f)
-                        else AccentBlue.copy(alpha = 0.15f)
-                    ),
-                contentAlignment = Alignment.Center
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (isMuted) "🔇" else volumeLevel.icon,
-                    fontSize = 24.sp
-                )
+                Column {
+                    Text(
+                        text = "내 현재 상태",
+                        fontSize = 12.sp,
+                        color = colors.onSurface.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = if (currentActivity == UserActivity.NONE) "상태 없음"
+                        else "${currentActivity.emoji} ${currentActivity.label}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (currentActivity == UserActivity.NONE) colors.onSurface.copy(alpha = 0.4f)
+                        else DangerRed,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                if (currentActivity != UserActivity.NONE) {
+                    TextButton(
+                        onClick = { onActivitySelect(UserActivity.NONE) },
+                        colors = ButtonDefaults.textButtonColors(contentColor = colors.onSurface.copy(alpha = 0.5f))
+                    ) {
+                        Text("해제", fontSize = 12.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 상태 그리드 (4열)
+            val rows = activities.chunked(4)
+            rows.forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowItems.forEach { activity ->
+                        val isSelected = currentActivity == activity
+                        OutlinedButton(
+                            onClick = {
+                                onActivitySelect(if (isSelected) UserActivity.NONE else activity)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(64.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isSelected) DangerRed.copy(alpha = 0.12f) else Color.Transparent,
+                                contentColor = if (isSelected) DangerRed else colors.onSurface.copy(alpha = 0.7f)
+                            ),
+                            border = BorderStroke(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) DangerRed else colors.outline.copy(alpha = 0.4f)
+                            ),
+                            contentPadding = PaddingValues(4.dp)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(text = activity.emoji, fontSize = 20.sp)
+                                Text(
+                                    text = activity.label.replace("중", "\n중"),
+                                    fontSize = 9.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    lineHeight = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                    // 빈 칸 채우기
+                    repeat(4 - rowItems.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+                if (rows.indexOf(rowItems) < rows.size - 1) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PartnerStatusCard(isMuted: Boolean, volumeLevel: VolumeLevel, activity: UserActivity) {
+    val colors = MaterialTheme.colorScheme
+    val hasActivity = activity != UserActivity.NONE
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasActivity) DangerRed.copy(alpha = 0.08f) else colors.surfaceVariant
+        )
+    ) {
+        Column {
+            // 활동 상태 배너
+            if (hasActivity) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            DangerRed.copy(alpha = 0.15f),
+                            RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                        )
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = activity.emoji, fontSize = 18.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = activity.label,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = DangerRed
+                        )
+                        Text(
+                            text = activity.description,
+                            fontSize = 11.sp,
+                            color = DangerRed.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "상대방 현재 상태",
+                        fontSize = 12.sp,
+                        color = colors.onSurface.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (isMuted) "무음 모드" else "${volumeLevel.icon} ${volumeLevel.label}",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isMuted) DangerRed else colors.onBackground
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isMuted) DangerRed.copy(alpha = 0.15f)
+                            else AccentBlue.copy(alpha = 0.15f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isMuted) "🔇" else volumeLevel.icon,
+                        fontSize = 24.sp
+                    )
+                }
             }
         }
     }
@@ -203,6 +357,7 @@ private fun StatusCard(isMuted: Boolean, volumeLevel: VolumeLevel) {
 private fun MuteControlCard(
     isMuted: Boolean,
     isAccessAllowed: Boolean,
+    partnerActivity: UserActivity,
     onMuteToggle: () -> Unit,
     onVolumeSelect: (VolumeLevel) -> Unit
 ) {
@@ -244,6 +399,26 @@ private fun MuteControlCard(
                     color = DangerRed,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+            }
+
+            if (partnerActivity != UserActivity.NONE) {
+                Row(
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DangerRed.copy(alpha = 0.08f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "⚠️", fontSize = 13.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "상대방이 ${partnerActivity.label}이에요. 소리를 켜도 될까요?",
+                        fontSize = 12.sp,
+                        color = DangerRed
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

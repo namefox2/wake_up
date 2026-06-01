@@ -5,8 +5,21 @@ data class DeviceStatus(
     val volumeLevel: VolumeLevel = VolumeLevel.MEDIUM,
     val isAccessAllowed: Boolean = true,
     val isOnline: Boolean = false,
-    val lastUpdated: Long = 0L
+    val lastUpdated: Long = 0L,
+    val activity: UserActivity = UserActivity.NONE
 )
+
+enum class UserActivity(val label: String, val emoji: String, val description: String) {
+    NONE("없음", "", ""),
+    MOVIE("영화감상중", "🎬", "영화나 드라마를 보고 있어요"),
+    EXAM("시험중", "📝", "시험 또는 공부 중이에요"),
+    MEETING("회의중", "💼", "회의 또는 업무 중이에요"),
+    DRIVING("운전중", "🚗", "운전 중이라 답장이 어려워요"),
+    CLASS("수업중", "📚", "수업이나 강의 중이에요"),
+    SLEEPING("취침중", "🌙", "자고 있어요"),
+    WORKOUT("운동중", "🏃", "운동 중이에요"),
+    CONCERT("공연관람중", "🎵", "공연이나 콘서트 중이에요")
+}
 
 enum class VolumeLevel(val label: String, val icon: String, val value: Int) {
     MUTE("무음", "🔇", 0),

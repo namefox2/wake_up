@@ -8,6 +8,7 @@ import com.google.firebase.database.ValueEventListener
 import com.silentlink.app.model.ConnectionInfo
 import com.silentlink.app.model.DeviceStatus
 import com.silentlink.app.model.DndSchedule
+import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -42,7 +43,8 @@ class FirebaseRepository {
                 "volumeLevel" to "MEDIUM",
                 "isAccessAllowed" to true,
                 "isOnline" to true,
-                "lastUpdated" to System.currentTimeMillis()
+                "lastUpdated" to System.currentTimeMillis(),
+                "activity" to "NONE"
             )
         ).await()
     }
@@ -67,13 +69,15 @@ class FirebaseRepository {
                 val isAccessAllowed = snapshot.child("isAccessAllowed").getValue(Boolean::class.java) ?: true
                 val isOnline = snapshot.child("isOnline").getValue(Boolean::class.java) ?: false
                 val lastUpdated = snapshot.child("lastUpdated").getValue(Long::class.java) ?: 0L
+                val activityStr = snapshot.child("activity").getValue(String::class.java) ?: "NONE"
                 trySend(
                     DeviceStatus(
                         isMuted = isMuted,
                         volumeLevel = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrDefault(VolumeLevel.MEDIUM),
                         isAccessAllowed = isAccessAllowed,
                         isOnline = isOnline,
-                        lastUpdated = lastUpdated
+                        lastUpdated = lastUpdated,
+                        activity = runCatching { UserActivity.valueOf(activityStr) }.getOrDefault(UserActivity.NONE)
                     )
                 )
             }
@@ -127,5 +131,9 @@ class FirebaseRepository {
 
     suspend fun updateAccessAllowed(myUid: String, allowed: Boolean) {
         db.getReference("devices/$myUid/status/isAccessAllowed").setValue(allowed).await()
+    }
+
+    suspend fun updateMyActivity(myUid: String, activity: UserActivity) {
+        db.getReference("devices/$myUid/status/activity").setValue(activity.name).await()
     }
 }

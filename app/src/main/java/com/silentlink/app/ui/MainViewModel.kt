@@ -13,6 +13,7 @@ import com.silentlink.app.manager.DndManager
 import com.silentlink.app.model.AppTheme
 import com.silentlink.app.model.DeviceStatus
 import com.silentlink.app.model.DndSchedule
+import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.repository.FirebaseRepository
 import com.silentlink.app.service.SilentLinkService
@@ -231,6 +232,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setMyActivity(activity: UserActivity) {
+        viewModelScope.launch {
+            val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+            repository.updateMyActivity(myUid, activity)
+            _uiState.value = _uiState.value.copy(myActivity = activity)
+        }
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
@@ -243,6 +252,7 @@ data class SilentLinkUiState(
     val isConnected: Boolean = false,
     val myStatus: DeviceStatus = DeviceStatus(),
     val partnerStatus: DeviceStatus = DeviceStatus(),
+    val myActivity: UserActivity = UserActivity.NONE,
     val dndSchedules: List<DndSchedule> = emptyList(),
     val theme: AppTheme = AppTheme.DARK,
     val errorMessage: String? = null
