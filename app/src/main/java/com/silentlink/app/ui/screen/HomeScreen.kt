@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.ui.platform.LocalContext
 import com.silentlink.app.ads.BannerAdView
