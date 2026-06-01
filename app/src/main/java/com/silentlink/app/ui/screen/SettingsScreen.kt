@@ -19,7 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +41,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
 
     val billingManager = remember { BillingManager(context) }
+    val clipboard = LocalClipboardManager.current
     LaunchedEffect(Unit) { billingManager.connect() }
     DisposableEffect(Unit) { onDispose { billingManager.disconnect() } }
 
@@ -69,7 +72,8 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     icon = Icons.Default.QrCode,
                     title = "내 초대 코드",
                     subtitle = uiState.myCode.chunked(3).joinToString(" - "),
-                    iconTint = AccentBlue
+                    iconTint = AccentBlue,
+                    onClick = { clipboard.setText(AnnotatedString(uiState.myCode)) }
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -80,23 +84,12 @@ fun SettingsScreen(viewModel: MainViewModel) {
             SettingItem(
                 icon = Icons.Default.VolumeUp,
                 title = "시스템 설정 변경 권한",
-                subtitle = "무음/볼륨 제어에 필요",
+                subtitle = "무음/볼륨 제어에 필요 — 탭하여 허용",
                 iconTint = AccentBlue,
                 onClick = {
                     val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                         data = android.net.Uri.parse("package:${context.packageName}")
                     }
-                    context.startActivity(intent)
-                }
-            )
-            HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
-            SettingItem(
-                icon = Icons.Default.NotificationsOff,
-                title = "방해금지 모드 접근 권한",
-                subtitle = "DND 스케줄 제어에 필요",
-                iconTint = AccentBlue,
-                onClick = {
-                    val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
                     context.startActivity(intent)
                 }
             )

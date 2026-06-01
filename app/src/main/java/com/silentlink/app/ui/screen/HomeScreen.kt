@@ -186,7 +186,8 @@ fun HomeScreen(viewModel: MainViewModel) {
                 PartnerStatusCard(
                     isMuted = uiState.partnerStatus.isMuted,
                     volumeLevel = uiState.partnerStatus.volumeLevel,
-                    activity = uiState.partnerStatus.activity
+                    activity = uiState.partnerStatus.activity,
+                    onRefresh = { viewModel.refreshPartnerStatus() }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -298,7 +299,12 @@ private fun MyActivityCard(currentActivity: UserActivity, onActivitySelect: (Use
 // ── 상대방 상태 카드 ──────────────────────────────────────────────
 
 @Composable
-private fun PartnerStatusCard(isMuted: Boolean, volumeLevel: VolumeLevel, activity: UserActivity) {
+private fun PartnerStatusCard(
+    isMuted: Boolean,
+    volumeLevel: VolumeLevel,
+    activity: UserActivity,
+    onRefresh: () -> Unit
+) {
     val colors = MaterialTheme.colorScheme
     val hasActivity = activity != UserActivity.NONE
 
@@ -341,12 +347,23 @@ private fun PartnerStatusCard(isMuted: Boolean, volumeLevel: VolumeLevel, activi
                         color = if (isMuted) DangerRed else colors.onBackground
                     )
                 }
-                Box(
-                    modifier = Modifier.size(52.dp).clip(CircleShape)
-                        .background(if (isMuted) DangerRed.copy(alpha = 0.15f) else AccentBlue.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(if (isMuted) "🔇" else volumeLevel.icon, fontSize = 22.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(52.dp).clip(CircleShape)
+                            .background(if (isMuted) DangerRed.copy(alpha = 0.15f) else AccentBlue.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(if (isMuted) "🔇" else volumeLevel.icon, fontSize = 22.sp)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = onRefresh, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "새로고침",
+                            tint = colors.onSurface.copy(alpha = 0.4f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

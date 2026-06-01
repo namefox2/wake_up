@@ -149,6 +149,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun refreshPartnerStatus() {
+        viewModelScope.launch {
+            val partnerUid = _uiState.value.partnerUid.ifEmpty { return@launch }
+            val status = repository.readPartnerStatus(partnerUid) ?: return@launch
+            _uiState.value = _uiState.value.copy(partnerStatus = status)
+        }
+    }
+
     fun sendMuteCommand(muted: Boolean) {
         viewModelScope.launch {
             val partnerUid = _uiState.value.partnerUid.ifEmpty { return@launch }

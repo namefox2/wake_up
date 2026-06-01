@@ -25,29 +25,34 @@ class AudioControlManager(private val context: Context) {
 
     fun setMute(muted: Boolean) {
         if (!canWriteSettings()) return
-        audioManager.ringerMode = if (muted) {
-            AudioManager.RINGER_MODE_SILENT
+        if (muted) {
+            // RINGER_MODE_SILENT requires notification policy access on Android 6+;
+            // fall back to vibrate if security exception occurs.
+            try {
+                audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
+            } catch (_: SecurityException) {
+                try { audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE } catch (_: Exception) {}
+            }
         } else {
-            AudioManager.RINGER_MODE_NORMAL
+            try {
+                audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
+            } catch (_: Exception) {}
         }
     }
 
     fun setVolumeLevel(level: VolumeLevel) {
         if (!canWriteSettings()) return
-        when (level) {
-            VolumeLevel.MUTE -> {
-                audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
+        try {
+            when (level) {
+                VolumeLevel.MUTE -> setMute(true)
+                else -> {
+                    audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
+                    val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
+                    val targetVolume = (max * level.value) / 100
+                    audioManager.setStreamVolume(AudioManager.STREAM_RING, targetVolume, 0)
+                }
             }
-            else -> {
-                audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
-                val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
-                val targetVolume = (max * level.value) / 100
-                audioManager.setStreamVolume(
-                    AudioManager.STREAM_RING,
-                    targetVolume,
-                    0
-                )
-            }
-        }
+        } catch (_: Exception) {}
     }
 }
+

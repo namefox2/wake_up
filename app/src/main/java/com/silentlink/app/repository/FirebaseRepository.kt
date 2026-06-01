@@ -89,6 +89,26 @@ class FirebaseRepository {
         awaitClose { ref.removeEventListener(listener) }
     }
 
+    suspend fun readPartnerStatus(partnerUid: String): DeviceStatus? {
+        return try {
+            val snapshot = db.getReference("devices/$partnerUid/status").get().await()
+            val isMuted = snapshot.child("isMuted").getValue(Boolean::class.java) ?: false
+            val volumeStr = snapshot.child("volumeLevel").getValue(String::class.java) ?: "MEDIUM"
+            val isAccessAllowed = snapshot.child("isAccessAllowed").getValue(Boolean::class.java) ?: true
+            val isOnline = snapshot.child("isOnline").getValue(Boolean::class.java) ?: false
+            val lastUpdated = snapshot.child("lastUpdated").getValue(Long::class.java) ?: 0L
+            val activityStr = snapshot.child("activity").getValue(String::class.java) ?: "NONE"
+            DeviceStatus(
+                isMuted = isMuted,
+                volumeLevel = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrDefault(VolumeLevel.MEDIUM),
+                isAccessAllowed = isAccessAllowed,
+                isOnline = isOnline,
+                lastUpdated = lastUpdated,
+                activity = runCatching { UserActivity.valueOf(activityStr) }.getOrDefault(UserActivity.NONE)
+            )
+        } catch (_: Exception) { null }
+    }
+
     fun observeMyCommands(myUid: String): Flow<Map<String, Any>> = callbackFlow {
         val ref = db.getReference("devices/$myUid/commands")
         val listener = object : ValueEventListener {
