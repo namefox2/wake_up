@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 링크 아이콘 (SilentLink) -->
+    <path
+        android:fillColor="#5B8DEE"
+        android:pathData="M44,54 C44,47.373 49.373,42 56,42 L68,42 C74.627,42 80,47.373 80,54 C80,60.627 74.627,66 68,66 L64,66"
+        android:strokeColor="#5B8DEE"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:fillAlpha="0" />
+    <path
+        android:fillColor="#5B8DEE"
+        android:pathData="M64,54 C64,60.627 58.627,66 52,66 L40,66 C33.373,66 28,60.627 28,54 C28,47.373 33.373,42 40,42 L44,42"
+        android:strokeColor="#5B8DEE"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:fillAlpha="0" />
+    <path
+        android:fillColor="#5B8DEE"
+        android:pathData="M46,54 L62,54"
+        android:strokeColor="#5B8DEE"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:fillAlpha="0" />
+</vector>
