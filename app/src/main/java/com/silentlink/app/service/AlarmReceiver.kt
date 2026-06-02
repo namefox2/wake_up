@@ -19,15 +19,16 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarmId = intent.getStringExtra(EXTRA_ALARM_ID) ?: return
         val label = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "SilentLink 알람"
         val alarmJson = intent.getStringExtra(EXTRA_ALARM_JSON)
+        val alarm = alarmJson?.let { runCatching { Gson().fromJson(it, RemoteAlarm::class.java) }.getOrNull() }
 
-        AlarmRingService.start(context, alarmId, label)
+        AlarmRingService.start(
+            context, alarmId, label,
+            alarmSound = alarm?.alarmSound ?: true,
+            alarmVibrate = alarm?.alarmVibrate ?: true
+        )
 
-        // 활성 알람은 다음 발생 시간으로 재스케줄
-        alarmJson?.let {
-            val alarm = runCatching { Gson().fromJson(it, RemoteAlarm::class.java) }.getOrNull()
-            if (alarm != null && alarm.isEnabled) {
-                AlarmScheduler(context).schedule(alarm)
-            }
+        if (alarm != null && alarm.isEnabled) {
+            AlarmScheduler(context).schedule(alarm)
         }
     }
 }

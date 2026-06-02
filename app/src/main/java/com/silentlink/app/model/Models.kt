@@ -62,7 +62,9 @@ data class RemoteAlarm(
     val days: Set<Int> = setOf(1, 2, 3, 4, 5), // 1=월..7=일, 빈 Set=매일
     val excludeHolidays: Boolean = false,
     val isEnabled: Boolean = true,
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
+    val alarmSound: Boolean = true,
+    val alarmVibrate: Boolean = true
 ) {
     fun displayTime(): String {
         val h12 = when {

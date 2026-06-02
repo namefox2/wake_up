@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -361,6 +360,8 @@ fun AlarmEditDialog(
     var selectedDays by remember { mutableStateOf(alarm?.days ?: setOf(1, 2, 3, 4, 5)) }
     var excludeHolidays by remember { mutableStateOf(alarm?.excludeHolidays ?: false) }
     var everyDay by remember { mutableStateOf(alarm?.days?.isEmpty() ?: false) }
+    var alarmSound by remember { mutableStateOf(alarm?.alarmSound ?: true) }
+    var alarmVibrate by remember { mutableStateOf(alarm?.alarmVibrate ?: true) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -512,6 +513,55 @@ fun AlarmEditDialog(
                     )
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 소리 / 진동
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.surfaceVariant)
+                        .clickable { alarmSound = !alarmSound }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🔊", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("알람 소리", fontSize = 14.sp, color = colors.onBackground, fontWeight = FontWeight.Medium)
+                    }
+                    Switch(
+                        checked = alarmSound,
+                        onCheckedChange = { alarmSound = it },
+                        colors = SwitchDefaults.colors(checkedTrackColor = AccentBlue)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.surfaceVariant)
+                        .clickable { alarmVibrate = !alarmVibrate }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📳", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("알람 진동", fontSize = 14.sp, color = colors.onBackground, fontWeight = FontWeight.Medium)
+                    }
+                    Switch(
+                        checked = alarmVibrate,
+                        onCheckedChange = { alarmVibrate = it },
+                        colors = SwitchDefaults.colors(checkedTrackColor = AccentBlue)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Row(
@@ -538,7 +588,9 @@ fun AlarmEditDialog(
                                     days = if (everyDay) emptySet() else selectedDays,
                                     excludeHolidays = excludeHolidays,
                                     isEnabled = alarm?.isEnabled ?: true,
-                                    createdAt = alarm?.createdAt ?: System.currentTimeMillis()
+                                    createdAt = alarm?.createdAt ?: System.currentTimeMillis(),
+                                    alarmSound = alarmSound,
+                                    alarmVibrate = alarmVibrate
                                 )
                             )
                         },
@@ -627,7 +679,6 @@ private fun TimeSpinner(
                 modifier = Modifier
                     .width(72.dp)
                     .focusRequester(focusRequester)
-                    .onFocusChanged { if (!it.isFocused) commitInput() }
             )
         } else {
             Text(

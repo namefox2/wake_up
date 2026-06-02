@@ -10,8 +10,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Home
@@ -19,10 +20,14 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.silentlink.app.model.AppTheme
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -31,7 +36,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.platform.LocalContext
 import com.silentlink.app.ads.AdMobManager
+import com.silentlink.app.service.AlarmRingService
 import com.silentlink.app.ui.MainViewModel
 import com.silentlink.app.ui.screen.AlarmScreen
 import com.silentlink.app.ui.screen.DndScreen
@@ -39,6 +46,7 @@ import com.silentlink.app.ui.screen.HomeScreen
 import com.silentlink.app.ui.screen.OnboardingScreen
 import com.silentlink.app.ui.screen.SettingsScreen
 import com.silentlink.app.ui.theme.AccentBlue
+import com.silentlink.app.ui.theme.DangerRed
 import com.silentlink.app.ui.theme.SilentLinkTheme
 
 data class NavItem(val route: String, val label: String, val icon: ImageVector)
@@ -96,6 +104,8 @@ fun MainNavigation(viewModel: MainViewModel) {
     val colors = MaterialTheme.colorScheme
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val isAlarmRinging by AlarmRingService.isRinging.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         containerColor = colors.background,
@@ -138,12 +148,40 @@ fun MainNavigation(viewModel: MainViewModel) {
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
-            NavHost(navController = navController, startDestination = "home") {
-                composable("home") { HomeScreen(viewModel = viewModel) }
-                composable("alarm") { AlarmScreen(viewModel = viewModel) }
-                composable("dnd") { DndScreen(viewModel = viewModel) }
-                composable("settings") { SettingsScreen(viewModel = viewModel) }
+        Column(modifier = Modifier.padding(innerPadding)) {
+            if (isAlarmRinging) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(DangerRed)
+                        .clickable { AlarmRingService.dismiss(context) }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("⏰", fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                AlarmRingService.ringingLabel.ifEmpty { "알람" },
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text("탭하여 알람 끄기", fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
+                        }
+                    }
+                    Text("해제", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                NavHost(navController = navController, startDestination = "home") {
+                    composable("home") { HomeScreen(viewModel = viewModel) }
+                    composable("alarm") { AlarmScreen(viewModel = viewModel) }
+                    composable("dnd") { DndScreen(viewModel = viewModel) }
+                    composable("settings") { SettingsScreen(viewModel = viewModel) }
+                }
             }
         }
     }

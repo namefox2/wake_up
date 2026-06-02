@@ -194,7 +194,9 @@ class FirebaseRepository {
             "days" to alarm.days.sorted().joinToString(","),  // String이 List보다 역직렬화 안정적
             "excludeHolidays" to alarm.excludeHolidays,
             "isEnabled" to alarm.isEnabled,
-            "createdAt" to alarm.createdAt
+            "createdAt" to alarm.createdAt,
+            "alarmSound" to alarm.alarmSound,
+            "alarmVibrate" to alarm.alarmVibrate
         )
         ref.setValue(map).await()
     }
@@ -231,7 +233,9 @@ class FirebaseRepository {
                         val excludeHolidays = child.child("excludeHolidays").getValue(Boolean::class.java) ?: false
                         val isEnabled = child.child("isEnabled").getValue(Boolean::class.java) ?: true
                         val createdAt = child.child("createdAt").getValue(Long::class.java) ?: 0L
-                        RemoteAlarm(id, label, hour, minute, days, excludeHolidays, isEnabled, createdAt)
+                        val alarmSound = child.child("alarmSound").getValue(Boolean::class.java) ?: true
+                        val alarmVibrate = child.child("alarmVibrate").getValue(Boolean::class.java) ?: true
+                        RemoteAlarm(id, label, hour, minute, days, excludeHolidays, isEnabled, createdAt, alarmSound, alarmVibrate)
                     }.getOrNull()
                 }
                 trySend(alarms)

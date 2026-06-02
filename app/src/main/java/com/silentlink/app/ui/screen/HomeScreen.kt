@@ -45,7 +45,9 @@ fun HomeScreen(viewModel: MainViewModel) {
     val colors = MaterialTheme.colorScheme
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
-    val canWriteSettings = remember { AudioControlManager(context).canWriteSettings() }
+    val audioManager = remember { AudioControlManager(context) }
+    val canWriteSettings = remember { audioManager.canWriteSettings() }
+    val canSetMute = remember { audioManager.canSetMute() }
     var partnerCodeInput by remember { mutableStateOf("") }
 
     Column(
@@ -204,6 +206,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     isAccessAllowed = uiState.partnerStatus.isAccessAllowed,
                     partnerActivity = uiState.partnerStatus.activity,
                     canWriteSettings = canWriteSettings,
+                    canSetMute = canSetMute,
                     onVolumeSelect = { viewModel.sendVolumeCommand(it) },
                     onGrantPermission = {
                         context.startActivity(
@@ -211,6 +214,9 @@ fun HomeScreen(viewModel: MainViewModel) {
                                 data = Uri.parse("package:${context.packageName}")
                             }
                         )
+                    },
+                    onGrantDndPermission = {
+                        context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
                     }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -397,8 +403,10 @@ private fun MuteControlCard(
     isAccessAllowed: Boolean,
     partnerActivity: UserActivity,
     canWriteSettings: Boolean,
+    canSetMute: Boolean,
     onVolumeSelect: (VolumeLevel) -> Unit,
-    onGrantPermission: () -> Unit
+    onGrantPermission: () -> Unit,
+    onGrantDndPermission: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     var pendingLevel by remember { mutableStateOf<VolumeLevel?>(null) }
@@ -454,6 +462,27 @@ private fun MuteControlCard(
                         Text("탭하여 허용 → SilentLink 켜기", fontSize = 11.sp, color = AccentBlue.copy(alpha = 0.7f))
                     }
                     Icon(Icons.Default.ChevronRight, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(16.dp))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            if (!canSetMute) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(DangerRed.copy(alpha = 0.08f))
+                        .clickable(onClick = onGrantDndPermission)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🔕", fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("무음 모드 권한 필요", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = DangerRed)
+                        Text("탭하여 방해금지 접근 허용 (무음 전용)", fontSize = 11.sp, color = DangerRed.copy(alpha = 0.7f))
+                    }
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = DangerRed, modifier = Modifier.size(16.dp))
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }

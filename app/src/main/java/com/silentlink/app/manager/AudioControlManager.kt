@@ -1,5 +1,6 @@
 package com.silentlink.app.manager
 
+import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
 import android.provider.Settings
@@ -11,6 +12,11 @@ class AudioControlManager(private val context: Context) {
 
     fun canWriteSettings(): Boolean {
         return Settings.System.canWrite(context)
+    }
+
+    fun canSetMute(): Boolean {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        return nm.isNotificationPolicyAccessGranted
     }
 
     fun isMuted(): Boolean {
@@ -27,13 +33,11 @@ class AudioControlManager(private val context: Context) {
     }
 
     fun setMute(muted: Boolean): Boolean {
-        // 진동/일반 모드 전환은 권한 불필요; 무음만 DND 정책에 의해 거부될 수 있음
         return try {
             if (muted) {
-                try {
+                if (canSetMute()) {
                     audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
-                } catch (_: SecurityException) {
-                    // DND 정책 미허용 시 진동으로 대체
+                } else {
                     audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
                 }
             } else {

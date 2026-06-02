@@ -19,6 +19,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import com.silentlink.app.MainActivity
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class AlarmRingService : Service() {
 
@@ -32,11 +33,19 @@ class AlarmRingService : Service() {
         const val ACTION_DISMISS = "com.silentlink.app.ALARM_DISMISS"
         const val EXTRA_ALARM_ID = "alarm_id"
         const val EXTRA_ALARM_LABEL = "alarm_label"
+        const val EXTRA_ALARM_SOUND = "alarm_sound"
+        const val EXTRA_ALARM_VIBRATE = "alarm_vibrate"
 
-        fun start(context: Context, alarmId: String, label: String) {
+        val isRinging = MutableStateFlow(false)
+        var ringingLabel = ""
+            private set
+
+        fun start(context: Context, alarmId: String, label: String, alarmSound: Boolean = true, alarmVibrate: Boolean = true) {
             val intent = Intent(context, AlarmRingService::class.java).apply {
                 putExtra(EXTRA_ALARM_ID, alarmId)
                 putExtra(EXTRA_ALARM_LABEL, label)
+                putExtra(EXTRA_ALARM_SOUND, alarmSound)
+                putExtra(EXTRA_ALARM_VIBRATE, alarmVibrate)
             }
             context.startForegroundService(intent)
         }
@@ -46,6 +55,9 @@ class AlarmRingService : Service() {
         }
     }
 
+    private var shouldSound = true
+    private var shouldVibrate = true
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_DISMISS) {
             stopSelf()
@@ -54,6 +66,11 @@ class AlarmRingService : Service() {
 
         val alarmId = intent?.getStringExtra(EXTRA_ALARM_ID) ?: ""
         val label = intent?.getStringExtra(EXTRA_ALARM_LABEL) ?: "SilentLink 알람"
+        shouldSound = intent?.getBooleanExtra(EXTRA_ALARM_SOUND, true) ?: true
+        shouldVibrate = intent?.getBooleanExtra(EXTRA_ALARM_VIBRATE, true) ?: true
+
+        ringingLabel = label
+        isRinging.value = true
 
         createNotificationChannel()
         val notification = buildNotification(alarmId, label)
@@ -64,8 +81,8 @@ class AlarmRingService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        startRinging()
-        startVibrating()
+        if (shouldSound) startRinging()
+        if (shouldVibrate) startVibrating()
 
         return START_STICKY
     }
@@ -164,6 +181,8 @@ class AlarmRingService : Service() {
     }
 
     override fun onDestroy() {
+        isRinging.value = false
+        ringingLabel = ""
         ringtone?.stop()
         ringtone = null
         mediaPlayer?.stop()
