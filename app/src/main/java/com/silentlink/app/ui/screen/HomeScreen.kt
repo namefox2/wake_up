@@ -30,6 +30,9 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.silentlink.app.ads.BannerAdView
 import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.model.UserActivity
@@ -46,8 +49,21 @@ fun HomeScreen(viewModel: MainViewModel) {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val audioManager = remember { AudioControlManager(context) }
-    val canWriteSettings = remember { audioManager.canWriteSettings() }
-    val canSetMute = remember { audioManager.canSetMute() }
+    var canWriteSettings by remember { mutableStateOf(audioManager.canWriteSettings()) }
+    var canSetMute by remember { mutableStateOf(audioManager.canSetMute()) }
+
+    // 설정 화면에서 돌아올 때마다 권한 재확인
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canWriteSettings = audioManager.canWriteSettings()
+                canSetMute = audioManager.canSetMute()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     var partnerCodeInput by remember { mutableStateOf("") }
 
     Column(
