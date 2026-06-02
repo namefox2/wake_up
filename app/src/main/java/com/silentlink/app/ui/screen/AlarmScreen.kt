@@ -8,6 +8,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -18,9 +21,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -572,21 +582,72 @@ private fun TimeSpinner(
     formatAs2Digit: Boolean = false
 ) {
     val colors = MaterialTheme.colorScheme
+    var isEditing by remember { mutableStateOf(false) }
+    var textInput by remember(value) { mutableStateOf(if (formatAs2Digit) "%02d".format(value) else value.toString()) }
+    val focusRequester = remember { FocusRequester() }
+
+    fun commitInput() {
+        val num = textInput.toIntOrNull()
+        if (num != null && num in range) onValueChange(num)
+        else textInput = if (formatAs2Digit) "%02d".format(value) else value.toString()
+        isEditing = false
+    }
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         IconButton(onClick = {
+            isEditing = false
             val next = value + step
             onValueChange(if (next > range.last) range.first else next)
         }) {
             Text("▲", fontSize = 14.sp, color = AccentBlue)
         }
-        Text(
-            text = if (formatAs2Digit) "%02d".format(value) else value.toString(),
-            fontSize = 36.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            color = colors.onBackground
-        )
+
+        if (isEditing) {
+            LaunchedEffect(Unit) { focusRequester.requestFocus() }
+            BasicTextField(
+                value = textInput,
+                onValueChange = { input ->
+                    val filtered = input.filter(Char::isDigit).take(2)
+                    textInput = filtered
+                },
+                textStyle = TextStyle(
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = AccentBlue,
+                    textAlign = TextAlign.Center
+                ),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { commitInput() }),
+                singleLine = true,
+                cursorBrush = SolidColor(AccentBlue),
+                modifier = Modifier
+                    .width(72.dp)
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { if (!it.isFocused) commitInput() }
+            )
+        } else {
+            Text(
+                text = if (formatAs2Digit) "%02d".format(value) else value.toString(),
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = colors.onBackground,
+                modifier = Modifier
+                    .width(72.dp)
+                    .clickable {
+                        textInput = ""
+                        isEditing = true
+                    },
+                textAlign = TextAlign.Center
+            )
+        }
+
         IconButton(onClick = {
+            isEditing = false
             val prev = value - step
             onValueChange(if (prev < range.first) range.last else prev)
         }) {

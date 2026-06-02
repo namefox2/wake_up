@@ -46,6 +46,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val KEY_PARTNER_UID = stringPreferencesKey("partner_uid")
         val KEY_THEME       = stringPreferencesKey("theme")
         val KEY_DND_CONFIG  = stringPreferencesKey("dnd_config")
+        val KEY_MY_ACTIVITY = stringPreferencesKey("my_activity")
     }
 
     init {
@@ -64,6 +65,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val partnerUid = prefs[KEY_PARTNER_UID]
             val theme      = runCatching { AppTheme.valueOf(prefs[KEY_THEME] ?: "") }.getOrDefault(AppTheme.DARK)
             val dndConfig  = runCatching { gson.fromJson(prefs[KEY_DND_CONFIG], DndConfig::class.java) }.getOrDefault(DndConfig())
+            val myActivity = runCatching { UserActivity.valueOf(prefs[KEY_MY_ACTIVITY] ?: "") }.getOrDefault(UserActivity.NONE)
 
             _uiState.value = _uiState.value.copy(
                 myCode     = myCode,
@@ -72,7 +74,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 isConnected = partnerUid != null,
                 theme      = theme,
                 dndConfig  = dndConfig ?: DndConfig(),
-                myStatus   = DeviceStatus(isMuted = audioManager.isMuted(), isOnline = true)
+                myStatus   = DeviceStatus(isMuted = audioManager.isMuted(), isOnline = true),
+                myActivity = myActivity
             )
 
             listenToMyAlarms(myUid)
@@ -239,6 +242,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             repository.updateMyActivity(myUid, activity)
             _uiState.value = _uiState.value.copy(myActivity = activity)
+            getApplication<Application>().dataStore.edit { prefs ->
+                prefs[KEY_MY_ACTIVITY] = activity.name
+            }
         }
     }
 

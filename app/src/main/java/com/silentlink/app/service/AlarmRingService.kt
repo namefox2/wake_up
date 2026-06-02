@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
@@ -21,6 +22,7 @@ import com.silentlink.app.MainActivity
 
 class AlarmRingService : Service() {
 
+    private var ringtone: Ringtone? = null
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
 
@@ -69,22 +71,37 @@ class AlarmRingService : Service() {
     }
 
     private fun startRinging() {
-        val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-        try {
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(this@AlarmRingService, alarmUri)
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                isLooping = true
-                prepare()
-                start()
+        // Already playing — don't restart
+        if (ringtone?.isPlaying == true || mediaPlayer?.isPlaying == true) return
+
+        val alarmAttrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
+        val uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
+            ?: RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE)
+            ?: return
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // API 28+: Ringtone supports isLooping natively
+            ringtone = RingtoneManager.getRingtone(this, uri)?.also { r ->
+                r.audioAttributes = alarmAttrs
+                r.isLooping = true
+                r.play()
             }
-        } catch (_: Exception) { }
+        } else {
+            // API 26-27: MediaPlayer with looping
+            try {
+                mediaPlayer = MediaPlayer().apply {
+                    setAudioAttributes(alarmAttrs)
+                    setDataSource(this@AlarmRingService, uri)
+                    isLooping = true
+                    prepare()
+                    start()
+                }
+            } catch (_: Exception) { }
+        }
     }
 
     private fun startVibrating() {
@@ -94,7 +111,6 @@ class AlarmRingService : Service() {
             @Suppress("DEPRECATION")
             getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
-        // 0.7초 진동, 0.3초 멈춤 반복
         val pattern = longArrayOf(0, 700, 300, 700, 300)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
@@ -141,13 +157,15 @@ class AlarmRingService : Service() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "알람이 울리는 동안 표시됩니다"
-            setSound(null, null)   // 소리는 MediaPlayer가 직접 재생
-            enableVibration(false) // 진동도 Vibrator가 직접 제어
+            setSound(null, null)
+            enableVibration(false)
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     override fun onDestroy() {
+        ringtone?.stop()
+        ringtone = null
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null
