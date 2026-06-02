@@ -77,6 +77,11 @@ class SilentLinkService : Service() {
                     val level = runCatching {
                         com.silentlink.app.model.VolumeLevel.valueOf(levelName)
                     }.getOrNull() ?: return@let
+
+                    if (level == com.silentlink.app.model.VolumeLevel.MUTE && !audioManager.canSetMute()) {
+                        showDndPermissionNotification()
+                    }
+
                     val ok = audioManager.setVolumeLevel(level)
                     if (ok) runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
                 }
@@ -101,6 +106,30 @@ class SilentLinkService : Service() {
                 }
             }
         }
+    }
+
+    private fun showDndPermissionNotification() {
+        val intent = Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS")
+        val pi = PendingIntent.getActivity(
+            this, 9001, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val nm = getSystemService(NotificationManager::class.java)
+
+        // 알림 채널이 없으면 생성
+        val channelId = "silentlink_alerts"
+        nm.createNotificationChannel(
+            NotificationChannel(channelId, "SilentLink 알림", NotificationManager.IMPORTANCE_HIGH)
+        )
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setContentTitle("🔕 무음 설정 불가")
+            .setContentText("방해금지 접근 허용이 필요합니다. 탭하여 설정하세요.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+        nm.notify(9001, notification)
     }
 
     private fun createNotificationChannel() {

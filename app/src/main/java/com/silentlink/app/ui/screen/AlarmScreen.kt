@@ -635,15 +635,9 @@ private fun TimeSpinner(
 ) {
     val colors = MaterialTheme.colorScheme
     var isEditing by remember { mutableStateOf(false) }
-    var textInput by remember(value) { mutableStateOf(if (formatAs2Digit) "%02d".format(value) else value.toString()) }
+    // textInput is independent of value — not reset when value changes externally
+    var textInput by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
-
-    fun commitInput() {
-        val num = textInput.toIntOrNull()
-        if (num != null && num in range) onValueChange(num)
-        else textInput = if (formatAs2Digit) "%02d".format(value) else value.toString()
-        isEditing = false
-    }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         IconButton(onClick = {
@@ -661,6 +655,9 @@ private fun TimeSpinner(
                 onValueChange = { input ->
                     val filtered = input.filter(Char::isDigit).take(2)
                     textInput = filtered
+                    // Apply immediately when the typed value is valid so Save always sees latest value
+                    val num = filtered.toIntOrNull()
+                    if (num != null && num in range) onValueChange(num)
                 },
                 textStyle = TextStyle(
                     fontSize = 36.sp,
@@ -673,7 +670,7 @@ private fun TimeSpinner(
                     keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done
                 ),
-                keyboardActions = KeyboardActions(onDone = { commitInput() }),
+                keyboardActions = KeyboardActions(onDone = { isEditing = false }),
                 singleLine = true,
                 cursorBrush = SolidColor(AccentBlue),
                 modifier = Modifier
