@@ -78,6 +78,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 myActivity = myActivity
             )
 
+            // 앱 재실행 시에도 서비스가 확실히 구동되도록
+            SilentLinkService.start(context)
             listenToMyAlarms(myUid)
             if (partnerUid != null) listenToPartnerStatus(partnerUid)
         }

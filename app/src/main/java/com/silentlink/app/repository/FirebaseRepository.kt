@@ -207,6 +207,10 @@ class FirebaseRepository {
         db.getReference("devices/$targetUid/alarms/$alarmId").removeValue().await()
     }
 
+    suspend fun deleteCommand(uid: String, command: String) {
+        db.getReference("devices/$uid/commands/$command").removeValue().await()
+    }
+
     fun observeAlarms(uid: String): Flow<List<RemoteAlarm>> = callbackFlow {
         val ref = db.getReference("devices/$uid/alarms")
         val listener = object : ValueEventListener {

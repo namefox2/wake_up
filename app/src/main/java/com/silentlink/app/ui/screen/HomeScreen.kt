@@ -52,19 +52,21 @@ fun HomeScreen(viewModel: MainViewModel) {
     var canWriteSettings by remember { mutableStateOf(audioManager.canWriteSettings()) }
     var canSetMute by remember { mutableStateOf(audioManager.canSetMute()) }
 
-    // 설정 화면에서 돌아올 때마다 권한 재확인
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var partnerCodeInput by remember { mutableStateOf("") }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 canWriteSettings = audioManager.canWriteSettings()
                 canSetMute = audioManager.canSetMute()
+                viewModel.refreshPartnerStatus()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    var partnerCodeInput by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -200,52 +202,77 @@ fun HomeScreen(viewModel: MainViewModel) {
                     }
                 }
             } else {
-                // ── 내 현재 상태 ───────────────────────────────────
-                MyActivityCard(
-                    currentActivity = uiState.myActivity,
-                    onActivitySelect = { viewModel.setMyActivity(it) }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+                // ── 탭 ────────────────────────────────────────────
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                    contentColor = AccentBlue,
+                    dividerColor = colors.outline.copy(alpha = 0.2f)
+                ) {
+                    listOf("내 상태", "상대방").forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = {
+                                Text(
+                                    title,
+                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            selectedContentColor = AccentBlue,
+                            unselectedContentColor = colors.onSurface.copy(alpha = 0.45f)
+                        )
+                    }
+                }
 
-                // ── 상대방 상태 ────────────────────────────────────
-                PartnerStatusCard(
-                    isMuted = uiState.partnerStatus.isMuted,
-                    volumeLevel = uiState.partnerStatus.volumeLevel,
-                    activity = uiState.partnerStatus.activity,
-                    onRefresh = { viewModel.refreshPartnerStatus() }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // ── 무음 제어 ──────────────────────────────────────
-                MuteControlCard(
-                    volumeLevel = uiState.partnerStatus.volumeLevel,
-                    isAccessAllowed = uiState.partnerStatus.isAccessAllowed,
-                    partnerActivity = uiState.partnerStatus.activity,
-                    canWriteSettings = canWriteSettings,
-                    canSetMute = canSetMute,
-                    onVolumeSelect = { viewModel.sendVolumeCommand(it) },
-                    onGrantPermission = {
-                        context.startActivity(
-                            Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
+                when (selectedTab) {
+                    0 -> {
+                        // ── 내 상태 탭 ─────────────────────────────
+                        MyActivityCard(
+                            currentActivity = uiState.myActivity,
+                            onActivitySelect = { viewModel.setMyActivity(it) }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        DndSummaryCard(isEnabled = uiState.dndConfig.isEnabled)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        AccessToggleCard(
+                            isAllowed = uiState.myStatus.isAccessAllowed,
+                            onToggle = { viewModel.toggleMyAccess(it) }
+                        )
+                    }
+                    else -> {
+                        // ── 상대방 탭 ──────────────────────────────
+                        PartnerStatusCard(
+                            isMuted = uiState.partnerStatus.isMuted,
+                            volumeLevel = uiState.partnerStatus.volumeLevel,
+                            activity = uiState.partnerStatus.activity,
+                            onRefresh = { viewModel.refreshPartnerStatus() }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        MuteControlCard(
+                            volumeLevel = uiState.partnerStatus.volumeLevel,
+                            isAccessAllowed = uiState.partnerStatus.isAccessAllowed,
+                            partnerActivity = uiState.partnerStatus.activity,
+                            canWriteSettings = canWriteSettings,
+                            canSetMute = canSetMute,
+                            onVolumeSelect = { viewModel.sendVolumeCommand(it) },
+                            onGrantPermission = {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                    }
+                                )
+                            },
+                            onGrantDndPermission = {
+                                context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
                             }
                         )
-                    },
-                    onGrantDndPermission = {
-                        context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
                     }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+                }
 
-                // ── 방해금지 요약 ──────────────────────────────────
-                DndSummaryCard(isEnabled = uiState.dndConfig.isEnabled)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // ── 접근 허용 토글 ─────────────────────────────────
-                AccessToggleCard(
-                    isAllowed = uiState.myStatus.isAccessAllowed,
-                    onToggle = { viewModel.toggleMyAccess(it) }
-                )
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }

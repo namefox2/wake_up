@@ -83,7 +83,11 @@ class SilentLinkService : Service() {
                     }
 
                     val ok = audioManager.setVolumeLevel(level)
-                    if (ok) runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
+                    if (ok) {
+                        runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
+                        // 처리 후 명령 삭제 — 서비스 재시작 시 재적용 방지
+                        runCatching { repository.deleteCommand(myUid, "setVolume") }
+                    }
                 }
             }
         }

@@ -84,13 +84,23 @@ fun SettingsScreen(viewModel: MainViewModel) {
             SettingItem(
                 icon = Icons.Default.VolumeUp,
                 title = "시스템 설정 변경 권한",
-                subtitle = "무음/볼륨 제어에 필요 — 탭하여 허용",
+                subtitle = "볼륨 제어에 필요 — 탭하여 허용",
                 iconTint = AccentBlue,
                 onClick = {
                     val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                         data = android.net.Uri.parse("package:${context.packageName}")
                     }
                     context.startActivity(intent)
+                }
+            )
+            HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+            SettingItem(
+                icon = Icons.Default.NotificationsOff,
+                title = "방해금지 접근 허용",
+                subtitle = "무음 모드 전환에 필요 — 탭하여 허용",
+                iconTint = DangerRed,
+                onClick = {
+                    context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
                 }
             )
         }
