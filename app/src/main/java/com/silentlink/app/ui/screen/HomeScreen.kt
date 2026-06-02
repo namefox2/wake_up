@@ -401,21 +401,31 @@ private fun MuteControlCard(
     onGrantPermission: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
-    var showMuteConfirm by remember { mutableStateOf(false) }
+    var pendingLevel by remember { mutableStateOf<VolumeLevel?>(null) }
 
-    if (showMuteConfirm) {
+    pendingLevel?.let { level ->
+        val levelColor = when (level) {
+            VolumeLevel.MUTE    -> DangerRed
+            VolumeLevel.VIBRATE -> AccentBlue
+            VolumeLevel.SOUND   -> SuccessGreen
+        }
+        val levelDesc = when (level) {
+            VolumeLevel.MUTE    -> "무음"
+            VolumeLevel.VIBRATE -> "진동"
+            VolumeLevel.SOUND   -> "소리"
+        }
         AlertDialog(
-            onDismissRequest = { showMuteConfirm = false },
-            title = { Text("무음으로 전환", fontWeight = FontWeight.Bold) },
-            text = { Text("상대방 기기를 무음 상태로 전환할까요?") },
+            onDismissRequest = { pendingLevel = null },
+            title = { Text("${level.icon} $levelDesc 모드로 전환", fontWeight = FontWeight.Bold) },
+            text = { Text("상대방 기기를 $levelDesc 상태로 전환할까요?") },
             confirmButton = {
                 TextButton(onClick = {
-                    onVolumeSelect(VolumeLevel.MUTE)
-                    showMuteConfirm = false
-                }) { Text("전환", color = DangerRed, fontWeight = FontWeight.Bold) }
+                    onVolumeSelect(level)
+                    pendingLevel = null
+                }) { Text("전환", color = levelColor, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { showMuteConfirm = false }) { Text("취소") }
+                TextButton(onClick = { pendingLevel = null }) { Text("취소") }
             }
         )
     }
@@ -484,8 +494,7 @@ private fun MuteControlCard(
                     OutlinedButton(
                         onClick = {
                             if (!isAccessAllowed) return@OutlinedButton
-                            if (level == VolumeLevel.MUTE) showMuteConfirm = true
-                            else onVolumeSelect(level)
+                            pendingLevel = level
                         },
                         enabled = isAccessAllowed,
                         modifier = Modifier.weight(1f).height(64.dp),

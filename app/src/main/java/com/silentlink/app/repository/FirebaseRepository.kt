@@ -68,14 +68,17 @@ class FirebaseRepository {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val isMuted = snapshot.child("isMuted").getValue(Boolean::class.java) ?: false
                 val volumeStr = snapshot.child("volumeLevel").getValue(String::class.java) ?: "SOUND"
+                val level = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrElse {
+                    if (isMuted) VolumeLevel.MUTE else VolumeLevel.SOUND
+                }
                 val isAccessAllowed = snapshot.child("isAccessAllowed").getValue(Boolean::class.java) ?: true
                 val isOnline = snapshot.child("isOnline").getValue(Boolean::class.java) ?: false
                 val lastUpdated = snapshot.child("lastUpdated").getValue(Long::class.java) ?: 0L
                 val activityStr = snapshot.child("activity").getValue(String::class.java) ?: "NONE"
                 trySend(
                     DeviceStatus(
-                        isMuted = isMuted,
-                        volumeLevel = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrDefault(VolumeLevel.SOUND),
+                        isMuted = level == VolumeLevel.MUTE || level == VolumeLevel.VIBRATE,
+                        volumeLevel = level,
                         isAccessAllowed = isAccessAllowed,
                         isOnline = isOnline,
                         lastUpdated = lastUpdated,
@@ -94,13 +97,16 @@ class FirebaseRepository {
             val snapshot = db.getReference("devices/$partnerUid/status").get().await()
             val isMuted = snapshot.child("isMuted").getValue(Boolean::class.java) ?: false
             val volumeStr = snapshot.child("volumeLevel").getValue(String::class.java) ?: "SOUND"
+            val level = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrElse {
+                if (isMuted) VolumeLevel.MUTE else VolumeLevel.SOUND
+            }
             val isAccessAllowed = snapshot.child("isAccessAllowed").getValue(Boolean::class.java) ?: true
             val isOnline = snapshot.child("isOnline").getValue(Boolean::class.java) ?: false
             val lastUpdated = snapshot.child("lastUpdated").getValue(Long::class.java) ?: 0L
             val activityStr = snapshot.child("activity").getValue(String::class.java) ?: "NONE"
             DeviceStatus(
-                isMuted = isMuted,
-                volumeLevel = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrDefault(VolumeLevel.SOUND),
+                isMuted = level == VolumeLevel.MUTE || level == VolumeLevel.VIBRATE,
+                volumeLevel = level,
                 isAccessAllowed = isAccessAllowed,
                 isOnline = isOnline,
                 lastUpdated = lastUpdated,
