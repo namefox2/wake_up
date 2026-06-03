@@ -31,7 +31,6 @@ class AlarmScheduler(private val context: Context) {
         )
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                // 정확한 알람 권한 미허용 시 ±10분 허용 윈도우로 대체
                 alarmManager.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 10 * 60 * 1000L, pending)
             } else {
                 alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, pending), pending)
@@ -59,20 +58,12 @@ class AlarmScheduler(private val context: Context) {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-        // 이미 지난 시간이면 내일부터 탐색
         if (cal.timeInMillis <= System.currentTimeMillis()) {
             cal.add(Calendar.DAY_OF_MONTH, 1)
         }
-        // 최대 14일 내에서 다음 유효한 날 탐색
+        if (alarm.days.isEmpty()) return cal.timeInMillis
         repeat(14) {
-            val dayNum = cal.get(Calendar.DAY_OF_WEEK).toLocalDayNum()
-            val isTargetDay = alarm.days.isEmpty() || dayNum in alarm.days
-            val isHoliday = alarm.excludeHolidays && KoreanHolidays.isHoliday(
-                cal.get(Calendar.YEAR),
-                cal.get(Calendar.MONTH) + 1,
-                cal.get(Calendar.DAY_OF_MONTH)
-            )
-            if (isTargetDay && !isHoliday) return cal.timeInMillis
+            if (cal.get(Calendar.DAY_OF_WEEK).toLocalDayNum() in alarm.days) return cal.timeInMillis
             cal.add(Calendar.DAY_OF_MONTH, 1)
         }
         return null

@@ -3,6 +3,7 @@ package com.silentlink.app.ui.screen
 import android.app.Activity
 import android.content.Intent
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -120,6 +121,25 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     }
                 )
             }
+            HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+            SettingItem(
+                icon = Icons.Default.BatteryFull,
+                title = "배터리 최적화 제외",
+                subtitle = "백그라운드에서 꺼지지 않도록 — 탭하여 허용",
+                iconTint = AccentBlue,
+                onClick = {
+                    val pm = context.getSystemService(PowerManager::class.java)
+                    if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = android.net.Uri.parse("package:${context.packageName}")
+                            }
+                        )
+                    } else {
+                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    }
+                }
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

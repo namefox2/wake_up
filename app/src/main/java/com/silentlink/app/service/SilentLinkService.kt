@@ -17,12 +17,13 @@ import androidx.core.app.NotificationCompat
 import com.silentlink.app.MainActivity
 import com.silentlink.app.manager.AlarmScheduler
 import com.silentlink.app.manager.AudioControlManager
-import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.repository.FirebaseRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class SilentLinkService : Service() {
@@ -31,8 +32,6 @@ class SilentLinkService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var audioManager: AudioControlManager
     private lateinit var alarmScheduler: AlarmScheduler
-    private var commandListenerJob: Job? = null
-    private var alarmListenerJob: Job? = null
     private val scheduledAlarmIds = mutableSetOf<String>()
     private var ringerModeReceiver: BroadcastReceiver? = null
 
@@ -66,6 +65,18 @@ class SilentLinkService : Service() {
         registerRingerModeReceiver()
     }
 
+    // START_STICKY: OS가 서비스를 종료해도 자동으로 재시작
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+
+    // Firebase Auth 초기화가 늦어질 수 있으므로 최대 10초 재시도
+    private suspend fun awaitUserId(): String? {
+        repeat(5) {
+            repository.getCurrentUserId()?.let { return it }
+            delay(2_000)
+        }
+        return null
+    }
+
     private fun syncActualMuteState() {
         scope.launch {
             val myUid = repository.getCurrentUserId() ?: return@launch
@@ -85,45 +96,52 @@ class SilentLinkService : Service() {
     }
 
     private fun startListeningCommands() {
-        commandListenerJob = scope.launch {
-            val myUid = repository.getCurrentUserId() ?: return@launch
-            repository.observeMyCommands(myUid).collect { commands ->
-                commands["setVolume"]?.let {
-                    val levelName = it as? String ?: return@let
-                    val level = runCatching {
-                        com.silentlink.app.model.VolumeLevel.valueOf(levelName)
-                    }.getOrNull() ?: return@let
+        scope.launch {
+            val myUid = awaitUserId() ?: return@launch
+            while (isActive) {
+                runCatching {
+                    repository.observeMyCommands(myUid).collect { commands ->
+                        commands["setVolume"]?.let {
+                            val levelName = it as? String ?: return@let
+                            val level = runCatching {
+                                com.silentlink.app.model.VolumeLevel.valueOf(levelName)
+                            }.getOrNull() ?: return@let
 
-                    if (level == com.silentlink.app.model.VolumeLevel.MUTE && !audioManager.canSetMute()) {
-                        showDndPermissionNotification()
-                    }
+                            if (level == com.silentlink.app.model.VolumeLevel.MUTE && !audioManager.canSetMute()) {
+                                showDndPermissionNotification()
+                            }
 
-                    val ok = audioManager.setVolumeLevel(level)
-                    if (ok) {
-                        runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
-                        // 처리 후 명령 삭제 — 서비스 재시작 시 재적용 방지
-                        runCatching { repository.deleteCommand(myUid, "setVolume") }
+                            val ok = audioManager.setVolumeLevel(level)
+                            if (ok) {
+                                runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
+                                runCatching { repository.deleteCommand(myUid, "setVolume") }
+                            }
+                        }
                     }
                 }
+                if (isActive) delay(5_000)
             }
         }
     }
 
     private fun startListeningAlarms() {
-        alarmListenerJob = scope.launch {
-            val myUid = repository.getCurrentUserId() ?: return@launch
-            repository.observeAlarms(myUid).collect { alarms ->
-                // 삭제된 알람 취소
-                val newIds = alarms.map { it.id }.toSet()
-                scheduledAlarmIds.forEach { id ->
-                    if (id !in newIds) alarmScheduler.cancel(id)
+        scope.launch {
+            val myUid = awaitUserId() ?: return@launch
+            while (isActive) {
+                runCatching {
+                    repository.observeAlarms(myUid).collect { alarms ->
+                        val newIds = alarms.map { it.id }.toSet()
+                        scheduledAlarmIds.forEach { id ->
+                            if (id !in newIds) alarmScheduler.cancel(id)
+                        }
+                        scheduledAlarmIds.clear()
+                        alarms.filter { it.isEnabled }.forEach { alarm ->
+                            alarmScheduler.schedule(alarm)
+                            scheduledAlarmIds.add(alarm.id)
+                        }
+                    }
                 }
-                scheduledAlarmIds.clear()
-                // 활성 알람 스케줄
-                alarms.filter { it.isEnabled }.forEach { alarm ->
-                    alarmScheduler.schedule(alarm)
-                    scheduledAlarmIds.add(alarm.id)
-                }
+                if (isActive) delay(5_000)
             }
         }
     }
@@ -134,13 +152,10 @@ class SilentLinkService : Service() {
             this, 9001, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val nm = getSystemService(NotificationManager::class.java)
-
-        // 알림 채널이 없으면 생성
         val channelId = "silentlink_alerts"
         nm.createNotificationChannel(
             NotificationChannel(channelId, "SilentLink 알림", NotificationManager.IMPORTANCE_HIGH)
         )
-
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
             .setContentTitle("🔕 무음 설정 불가")
@@ -160,8 +175,7 @@ class SilentLinkService : Service() {
         ).apply {
             description = "상대방과의 연결을 유지합니다"
         }
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(channel)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     private fun buildNotification(): Notification {
@@ -182,8 +196,7 @@ class SilentLinkService : Service() {
     override fun onDestroy() {
         ringerModeReceiver?.let { runCatching { unregisterReceiver(it) } }
         ringerModeReceiver = null
-        commandListenerJob?.cancel()
-        alarmListenerJob?.cancel()
+        scope.cancel()
         super.onDestroy()
     }
 }

@@ -278,14 +278,6 @@ private fun AlarmCard(
                         }
                     }
                 }
-                if (alarm.excludeHolidays) {
-                    Text(
-                        "공휴일 제외",
-                        fontSize = 11.sp,
-                        color = AccentBlue.copy(alpha = 0.8f),
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
-                }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -358,7 +350,6 @@ fun AlarmEditDialog(
     }
     var minute by remember { mutableIntStateOf(alarm?.minute ?: 0) }
     var selectedDays by remember { mutableStateOf(alarm?.days ?: setOf(1, 2, 3, 4, 5)) }
-    var excludeHolidays by remember { mutableStateOf(alarm?.excludeHolidays ?: false) }
     var everyDay by remember { mutableStateOf(alarm?.days?.isEmpty() ?: false) }
     var alarmSound by remember { mutableStateOf(alarm?.alarmSound ?: true) }
     var alarmVibrate by remember { mutableStateOf(alarm?.alarmVibrate ?: true) }
@@ -491,30 +482,6 @@ fun AlarmEditDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 공휴일 제외
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.surfaceVariant)
-                        .clickable { excludeHolidays = !excludeHolidays }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("공휴일 제외", fontSize = 14.sp, color = colors.onBackground, fontWeight = FontWeight.Medium)
-                        Text("설날, 추석, 삼일절 등 공휴일엔 울리지 않음", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.55f))
-                    }
-                    Switch(
-                        checked = excludeHolidays,
-                        onCheckedChange = { excludeHolidays = it },
-                        colors = SwitchDefaults.colors(checkedTrackColor = AccentBlue)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
                 // 소리 / 진동
                 Row(
                     modifier = Modifier
@@ -586,7 +553,6 @@ fun AlarmEditDialog(
                                     hour = hour24,
                                     minute = minute,
                                     days = if (everyDay) emptySet() else selectedDays,
-                                    excludeHolidays = excludeHolidays,
                                     isEnabled = alarm?.isEnabled ?: true,
                                     createdAt = alarm?.createdAt ?: System.currentTimeMillis(),
                                     alarmSound = alarmSound,

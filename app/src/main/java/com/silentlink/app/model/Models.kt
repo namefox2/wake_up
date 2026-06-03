@@ -57,10 +57,9 @@ enum class AppTheme(val displayName: String) {
 data class RemoteAlarm(
     val id: String = "",
     val label: String = "",
-    val hour: Int = 7,       // 0-23
+    val hour: Int = 7,
     val minute: Int = 0,
     val days: Set<Int> = setOf(1, 2, 3, 4, 5), // 1=월..7=일, 빈 Set=매일
-    val excludeHolidays: Boolean = false,
     val isEnabled: Boolean = true,
     val createdAt: Long = 0L,
     val alarmSound: Boolean = true,
