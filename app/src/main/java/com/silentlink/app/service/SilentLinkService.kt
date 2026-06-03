@@ -5,9 +5,12 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -31,6 +34,7 @@ class SilentLinkService : Service() {
     private var commandListenerJob: Job? = null
     private var alarmListenerJob: Job? = null
     private val scheduledAlarmIds = mutableSetOf<String>()
+    private var ringerModeReceiver: BroadcastReceiver? = null
 
     companion object {
         const val CHANNEL_ID = "silentlink_service"
@@ -59,6 +63,7 @@ class SilentLinkService : Service() {
         startListeningCommands()
         startListeningAlarms()
         syncActualMuteState()
+        registerRingerModeReceiver()
     }
 
     private fun syncActualMuteState() {
@@ -66,6 +71,17 @@ class SilentLinkService : Service() {
             val myUid = repository.getCurrentUserId() ?: return@launch
             runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
         }
+    }
+
+    private fun registerRingerModeReceiver() {
+        ringerModeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == AudioManager.RINGER_MODE_CHANGED_ACTION) {
+                    syncActualMuteState()
+                }
+            }
+        }
+        registerReceiver(ringerModeReceiver, IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION))
     }
 
     private fun startListeningCommands() {
@@ -164,6 +180,8 @@ class SilentLinkService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        ringerModeReceiver?.let { runCatching { unregisterReceiver(it) } }
+        ringerModeReceiver = null
         commandListenerJob?.cancel()
         alarmListenerJob?.cancel()
         super.onDestroy()
