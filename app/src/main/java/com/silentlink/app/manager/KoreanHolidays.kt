@@ -43,8 +43,36 @@ object KoreanHolidays {
         )
     )
 
+    // 대체 공휴일: 공휴일이 토·일요일과 겹칠 때 그 다음 평일
+    private val substitute: Map<Int, Set<Pair<Int, Int>>> = mapOf(
+        2024 to setOf(
+            2 to 13                                 // 설날 연휴 (2/10 토, 2/11 일)
+        ),
+        2025 to setOf(
+            3 to 3,                                 // 삼일절 (3/1 토)
+            10 to 8                                 // 추석 연휴 (10/5 일, 연휴 종료 후 첫 평일)
+        ),
+        2026 to setOf(
+            3 to 2,                                 // 삼일절 (3/1 일)
+            5 to 25,                                // 부처님오신날 (5/24 일)
+            6 to 8,                                 // 현충일 (6/6 토)
+            8 to 17,                                // 광복절 (8/15 토)
+            9 to 28,                                // 추석 연휴 (9/26 토, 9/27 일)
+            10 to 5                                 // 개천절 (10/3 토)
+        ),
+        2027 to setOf(
+            2 to 9, 2 to 10,                       // 설날 연휴 (2/6 토, 2/7 일)
+            6 to 7,                                 // 현충일 (6/6 일)
+            8 to 16,                                // 광복절 (8/15 일)
+            10 to 4,                                // 개천절 (10/3 일)
+            10 to 11                                // 한글날 (10/9 토)
+        ),
+        2028 to emptySet()
+    )
+
     fun isHoliday(year: Int, month: Int, day: Int): Boolean {
         if (fixed.contains(month to day)) return true
-        return lunar[year]?.contains(month to day) ?: false
+        if (lunar[year]?.contains(month to day) == true) return true
+        return substitute[year]?.contains(month to day) == true
     }
 }
