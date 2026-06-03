@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import com.google.gson.Gson
 import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.service.AlarmReceiver
@@ -28,11 +29,16 @@ class AlarmScheduler(private val context: Context) {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        // setAlarmClock은 SCHEDULE_EXACT_ALARM 권한 없이도 항상 정확하게 동작
-        alarmManager.setAlarmClock(
-            AlarmManager.AlarmClockInfo(triggerAt, pending),
-            pending
-        )
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                // 정확한 알람 권한 미허용 시 ±10분 허용 윈도우로 대체
+                alarmManager.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 10 * 60 * 1000L, pending)
+            } else {
+                alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, pending), pending)
+            }
+        } catch (_: SecurityException) {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        }
     }
 
     fun cancel(alarmId: String) {

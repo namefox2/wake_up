@@ -2,6 +2,7 @@ package com.silentlink.app.ui.screen
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -103,6 +104,22 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
                 }
             )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+                SettingItem(
+                    icon = Icons.Default.Alarm,
+                    title = "정확한 알람 권한",
+                    subtitle = "알람이 정시에 울리도록 — 탭하여 허용",
+                    iconTint = AccentBlue,
+                    onClick = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                data = android.net.Uri.parse("package:${context.packageName}")
+                            }
+                        )
+                    }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
