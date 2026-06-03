@@ -34,6 +34,7 @@ class SilentLinkService : Service() {
     private lateinit var alarmScheduler: AlarmScheduler
     private val scheduledAlarmIds = mutableSetOf<String>()
     private var ringerModeReceiver: BroadcastReceiver? = null
+    @Volatile private var lastSyncMs = 0L
 
     companion object {
         const val CHANNEL_ID = "silentlink_service"
@@ -78,6 +79,9 @@ class SilentLinkService : Service() {
     }
 
     private fun syncActualMuteState() {
+        val now = System.currentTimeMillis()
+        if (now - lastSyncMs < 2_000) return
+        lastSyncMs = now
         scope.launch {
             val myUid = repository.getCurrentUserId() ?: return@launch
             runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
@@ -98,8 +102,9 @@ class SilentLinkService : Service() {
     private fun startListeningCommands() {
         scope.launch {
             val myUid = awaitUserId() ?: return@launch
+            var backoffMs = 5_000L
             while (isActive) {
-                runCatching {
+                val failed = runCatching {
                     repository.observeMyCommands(myUid).collect { commands ->
                         commands["setVolume"]?.let {
                             val levelName = it as? String ?: return@let
@@ -118,8 +123,11 @@ class SilentLinkService : Service() {
                             }
                         }
                     }
+                }.isFailure
+                if (isActive) {
+                    delay(if (failed) backoffMs else 2_000L)
+                    backoffMs = if (failed) minOf(backoffMs * 2, 60_000L) else 5_000L
                 }
-                if (isActive) delay(5_000)
             }
         }
     }
@@ -127,8 +135,9 @@ class SilentLinkService : Service() {
     private fun startListeningAlarms() {
         scope.launch {
             val myUid = awaitUserId() ?: return@launch
+            var backoffMs = 5_000L
             while (isActive) {
-                runCatching {
+                val failed = runCatching {
                     repository.observeAlarms(myUid).collect { alarms ->
                         val newIds = alarms.map { it.id }.toSet()
                         scheduledAlarmIds.forEach { id ->
@@ -140,8 +149,11 @@ class SilentLinkService : Service() {
                             scheduledAlarmIds.add(alarm.id)
                         }
                     }
+                }.isFailure
+                if (isActive) {
+                    delay(if (failed) backoffMs else 2_000L)
+                    backoffMs = if (failed) minOf(backoffMs * 2, 60_000L) else 5_000L
                 }
-                if (isActive) delay(5_000)
             }
         }
     }

@@ -51,15 +51,20 @@ class FirebaseRepository {
         ).await()
     }
 
-    suspend fun connectWithCode(myUid: String, partnerCode: String): Boolean {
+    suspend fun connectWithCode(myUid: String, partnerCode: String): ConnectResult {
         val snapshot = db.getReference("codes/$partnerCode").get().await()
-        val partnerUid = snapshot.getValue(String::class.java) ?: return false
+        val partnerUid = snapshot.getValue(String::class.java) ?: return ConnectResult.NOT_FOUND
+
+        // 1대1 제한: 상대 기기가 이미 다른 기기와 연결 중이면 거부
+        val existing = db.getReference("devices/$partnerUid/partnerId").get().await()
+            .getValue(String::class.java)
+        if (!existing.isNullOrEmpty() && existing != myUid) return ConnectResult.ALREADY_CONNECTED
 
         db.getReference("devices/$myUid/partnerId").setValue(partnerUid).await()
         db.getReference("devices/$partnerUid/partnerId").setValue(myUid).await()
         db.getReference("devices/$myUid/connectedAt").setValue(System.currentTimeMillis()).await()
         db.getReference("devices/$partnerUid/connectedAt").setValue(System.currentTimeMillis()).await()
-        return true
+        return ConnectResult.SUCCESS
     }
 
     fun observePartnerStatus(partnerUid: String): Flow<DeviceStatus> = callbackFlow {
@@ -248,3 +253,5 @@ class FirebaseRepository {
         awaitClose { ref.removeEventListener(listener) }
     }
 }
+
+enum class ConnectResult { SUCCESS, NOT_FOUND, ALREADY_CONNECTED }

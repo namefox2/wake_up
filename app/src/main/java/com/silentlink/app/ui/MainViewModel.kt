@@ -17,6 +17,7 @@ import com.silentlink.app.model.DndConfig
 import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
+import com.silentlink.app.repository.ConnectResult
 import com.silentlink.app.repository.FirebaseRepository
 import com.silentlink.app.service.SilentLinkService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,10 +79,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 myActivity = myActivity
             )
 
-            // 앱 재실행 시에도 서비스가 확실히 구동되도록
-            SilentLinkService.start(context)
             listenToMyAlarms(myUid)
-            if (partnerUid != null) listenToPartnerStatus(partnerUid)
+            if (partnerUid != null) {
+                SilentLinkService.start(context)
+                listenToPartnerStatus(partnerUid)
+            }
         }
     }
 
@@ -100,7 +102,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _uiState.value = _uiState.value.copy(myUid = uid, myCode = code)
                 _isOnboarded.value = true
-                SilentLinkService.start(context)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "초기화 실패: ${e.message}")
             }
@@ -112,20 +113,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             _uiState.value = _uiState.value.copy(errorMessage = null)
             try {
-                val success = repository.connectWithCode(myUid, partnerCode)
-                if (success) {
-                    val partnerUid = repository.getPartnerUid(myUid) ?: return@launch
-                    getApplication<Application>().dataStore.edit { prefs ->
-                        prefs[KEY_PARTNER_UID] = partnerUid
+                when (repository.connectWithCode(myUid, partnerCode)) {
+                    ConnectResult.SUCCESS -> {
+                        val partnerUid = repository.getPartnerUid(myUid) ?: return@launch
+                        getApplication<Application>().dataStore.edit { prefs ->
+                            prefs[KEY_PARTNER_UID] = partnerUid
+                        }
+                        _uiState.value = _uiState.value.copy(
+                            partnerUid  = partnerUid,
+                            isConnected = true,
+                            errorMessage = null
+                        )
+                        SilentLinkService.start(getApplication())
+                        listenToPartnerStatus(partnerUid)
                     }
-                    _uiState.value = _uiState.value.copy(
-                        partnerUid  = partnerUid,
-                        isConnected = true,
-                        errorMessage = null
-                    )
-                    listenToPartnerStatus(partnerUid)
-                } else {
-                    _uiState.value = _uiState.value.copy(errorMessage = "코드를 찾을 수 없습니다")
+                    ConnectResult.NOT_FOUND ->
+                        _uiState.value = _uiState.value.copy(errorMessage = "코드를 찾을 수 없습니다")
+                    ConnectResult.ALREADY_CONNECTED ->
+                        _uiState.value = _uiState.value.copy(errorMessage = "이미 다른 기기와 연결된 코드입니다")
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "연결 실패: ${e.message}")
@@ -262,6 +267,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun disconnect() {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+            SilentLinkService.stop(getApplication())
             repository.disconnect(myUid)
             getApplication<Application>().dataStore.edit { prefs ->
                 prefs.remove(KEY_PARTNER_UID)
