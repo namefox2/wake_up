@@ -207,7 +207,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     selectedTabIndex = selectedTab,
                     containerColor = Color.Transparent,
                     contentColor = AccentBlue,
-                    dividerColor = colors.outline.copy(alpha = 0.2f)
+                    divider = { HorizontalDivider(color = colors.outline.copy(alpha = 0.2f)) }
                 ) {
                     listOf("내 상태", "상대방").forEachIndexed { index, title ->
                         Tab(
