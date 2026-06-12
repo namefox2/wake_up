@@ -20,6 +20,8 @@ import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.repository.ConnectResult
 import com.silentlink.app.repository.FirebaseRepository
 import com.silentlink.app.service.SilentLinkService
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -39,6 +41,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isOnboarded = MutableStateFlow(false)
     val isOnboarded: StateFlow<Boolean> = _isOnboarded
+
+    private var restoreInfoJob: Job? = null
 
     companion object {
         val KEY_ONBOARDED   = booleanPreferencesKey("onboarded")
@@ -182,6 +186,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (!_uiState.value.partnerStatus.isAccessAllowed) return@launch
             if (dndManager.isInDndTime(_uiState.value.dndConfig)) return@launch
             repository.sendCommand(partnerUid, "setVolume", level.name)
+            restoreInfoJob?.cancel()
+            _uiState.value = _uiState.value.copy(volumeRestoreInfo = "10분 후 원래 상태로 돌아갑니다")
+            restoreInfoJob = viewModelScope.launch {
+                delay(10 * 60 * 1000L)
+                _uiState.value = _uiState.value.copy(volumeRestoreInfo = null)
+            }
         }
     }
 
@@ -297,5 +307,6 @@ data class SilentLinkUiState(
     val alarmsForPartner: List<RemoteAlarm> = emptyList(),
     val alarmsFromPartner: List<RemoteAlarm> = emptyList(),
     val theme: AppTheme = AppTheme.DARK,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val volumeRestoreInfo: String? = null
 )

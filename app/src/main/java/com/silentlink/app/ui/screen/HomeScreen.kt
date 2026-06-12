@@ -257,6 +257,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                             partnerActivity = uiState.partnerStatus.activity,
                             canWriteSettings = canWriteSettings,
                             canSetMute = canSetMute,
+                            restoreInfo = uiState.volumeRestoreInfo,
                             onVolumeSelect = { viewModel.sendVolumeCommand(it) },
                             onGrantPermission = {
                                 context.startActivity(
@@ -447,6 +448,7 @@ private fun MuteControlCard(
     partnerActivity: UserActivity,
     canWriteSettings: Boolean,
     canSetMute: Boolean,
+    restoreInfo: String? = null,
     onVolumeSelect: (VolumeLevel) -> Unit,
     onGrantPermission: () -> Unit,
     onGrantDndPermission: () -> Unit
@@ -468,7 +470,7 @@ private fun MuteControlCard(
         AlertDialog(
             onDismissRequest = { pendingLevel = null },
             title = { Text("${level.icon} $levelDesc 모드로 전환", fontWeight = FontWeight.Bold) },
-            text = { Text("상대방 기기를 $levelDesc 상태로 전환할까요?") },
+            text = { Text("상대방 기기를 $levelDesc 상태로 전환할까요?\n\n10분 후 원래 상태로 자동 복원됩니다") },
             confirmButton = {
                 TextButton(onClick = {
                     onVolumeSelect(level)
@@ -587,6 +589,22 @@ private fun MuteControlCard(
                             Text(level.label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                         }
                     }
+                }
+            }
+
+            restoreInfo?.let { info ->
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(AccentBlue.copy(alpha = 0.1f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("⏱", fontSize = 13.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(info, fontSize = 12.sp, color = AccentBlue)
                 }
             }
         }

@@ -17,9 +17,11 @@ import androidx.core.app.NotificationCompat
 import com.silentlink.app.MainActivity
 import com.silentlink.app.manager.AlarmScheduler
 import com.silentlink.app.manager.AudioControlManager
+import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.repository.FirebaseRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -35,6 +37,8 @@ class SilentLinkService : Service() {
     private val scheduledAlarmIds = mutableSetOf<String>()
     private var ringerModeReceiver: BroadcastReceiver? = null
     @Volatile private var lastSyncMs = 0L
+    private var restoreJob: Job? = null
+    @Volatile private var restoreLevel: VolumeLevel? = null
 
     companion object {
         const val CHANNEL_ID = "silentlink_service"
@@ -109,15 +113,26 @@ class SilentLinkService : Service() {
                         commands["setVolume"]?.let {
                             val levelName = it as? String ?: return@let
                             val level = runCatching {
-                                com.silentlink.app.model.VolumeLevel.valueOf(levelName)
+                                VolumeLevel.valueOf(levelName)
                             }.getOrNull() ?: return@let
 
-                            if (level == com.silentlink.app.model.VolumeLevel.MUTE && !audioManager.canSetMute()) {
+                            if (level == VolumeLevel.MUTE && !audioManager.canSetMute()) {
                                 showDndPermissionNotification()
                             }
 
+                            val original = restoreLevel ?: audioManager.getCurrentVolumeLevel()
                             val ok = audioManager.setVolumeLevel(level)
                             if (ok) {
+                                restoreLevel = original
+                                restoreJob?.cancel()
+                                restoreJob = scope.launch {
+                                    delay(10 * 60 * 1000L)
+                                    val target = restoreLevel ?: return@launch
+                                    restoreLevel = null
+                                    audioManager.setVolumeLevel(target)
+                                    runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
+                                }
+                                showVolumeChangedNotification()
                                 runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
                                 runCatching { repository.deleteCommand(myUid, "setVolume") }
                             }
@@ -156,6 +171,22 @@ class SilentLinkService : Service() {
                 }
             }
         }
+    }
+
+    private fun showVolumeChangedNotification() {
+        val nm = getSystemService(NotificationManager::class.java)
+        val channelId = "silentlink_alerts"
+        nm.createNotificationChannel(
+            NotificationChannel(channelId, "SilentLink 알림", NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_lock_silent_mode)
+            .setContentTitle("볼륨 설정 변경됨")
+            .setContentText("10분 후 원래 상태로 돌아갑니다")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+        nm.notify(9002, notification)
     }
 
     private fun showDndPermissionNotification() {
@@ -208,6 +239,7 @@ class SilentLinkService : Service() {
     override fun onDestroy() {
         ringerModeReceiver?.let { runCatching { unregisterReceiver(it) } }
         ringerModeReceiver = null
+        restoreJob?.cancel()
         scope.cancel()
         super.onDestroy()
     }
