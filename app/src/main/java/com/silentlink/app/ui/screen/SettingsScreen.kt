@@ -234,6 +234,41 @@ fun SettingsScreen(viewModel: MainViewModel) {
             }
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "이용 시 주의사항",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface.copy(alpha = 0.55f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                listOf(
+                    "상대방의 상황(회의, 수업, 운전 등)을 충분히 고려하여 신중하게 사용하세요.",
+                    "잘못된 사용으로 인해 발생한 피해에 대해 개발자는 어떠한 법적 책임도 지지 않습니다."
+                ).forEach { notice ->
+                    Row(
+                        modifier = Modifier.padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text("• ", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.4f))
+                        Text(
+                            notice,
+                            fontSize = 11.sp,
+                            color = colors.onSurface.copy(alpha = 0.5f),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
     }
 

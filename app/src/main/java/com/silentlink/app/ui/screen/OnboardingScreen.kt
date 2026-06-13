@@ -99,8 +99,10 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                 Spacer(modifier = Modifier.height(12.dp))
                 listOf(
                     "상대방이 앱을 설치하고 권한을 허용해야만 기능이 작동합니다.",
+                    "상대방의 상황(회의, 수업, 운전 등)을 충분히 고려하여 신중하게 사용하세요.",
                     "동의 없이 타인의 기기에 설치하거나 감시 목적으로 사용하면 정보통신망법에 의해 처벌받을 수 있습니다.",
-                    "기능 악용으로 발생한 법적 책임은 사용자 본인에게 있습니다."
+                    "기능 악용으로 발생한 법적 책임은 사용자 본인에게 있습니다.",
+                    "잘못된 사용으로 인해 발생한 피해에 대해 개발자는 어떠한 법적 책임도 지지 않습니다."
                 ).forEach { notice ->
                     Row(
                         modifier = Modifier.padding(vertical = 3.dp),
