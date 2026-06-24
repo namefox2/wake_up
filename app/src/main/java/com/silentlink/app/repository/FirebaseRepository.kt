@@ -112,6 +112,12 @@ class FirebaseRepository {
         db.getReference("users/$uid/purchasedSlots").setValue(slots).await()
     }
 
+    suspend fun isAdmin(uid: String): Boolean =
+        runCatching {
+            db.getReference("users/$uid/isAdmin").get().await()
+                .getValue(Boolean::class.java) ?: false
+        }.getOrDefault(false)
+
     // 상태 관찰
 
     fun observePartnerStatus(partnerUid: String): Flow<DeviceStatus> = callbackFlow {

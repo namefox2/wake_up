@@ -99,7 +99,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ?: prefs[KEY_PARTNER_UID]?.let { listOf(it) }
             ?: emptyList())
 
-        val purchasedSlots = runCatching { repository.getPurchasedSlots(myUid) }.getOrDefault(0)
+        val isAdmin = runCatching { repository.isAdmin(myUid) }.getOrDefault(false)
+        val purchasedSlots = if (isAdmin) 4 else runCatching { repository.getPurchasedSlots(myUid) }.getOrDefault(0)
 
         _uiState.value = _uiState.value.copy(
             myCode     = myCode,
