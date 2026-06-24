@@ -214,7 +214,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         Text("슬롯 추가 (₩1,000)", fontSize = 14.sp)
                     }
                     Text(
-                        "슬롯 1개당 기기 1대 추가 (최대 5대)\n구매 시 Google 계정 연동이 필요합니다",
+                        "슬롯 1개당 기기 1대 추가 (최대 5대)\n구매 시 Google 계정 연동이 필요합니다\n기기 등록 완료 후에는 환불이 어렵습니다",
                         fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.45f),
                         modifier = Modifier.padding(top = 6.dp), lineHeight = 16.sp
                     )
