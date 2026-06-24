@@ -12,15 +12,12 @@ import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
+import com.android.billingclient.api.QueryPurchasesParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-data class SupportTier(
-    val productId: String,
-    val displayName: String,
-    val price: String
-)
-
+// 개발자 응원 상품 (소모성)
+data class SupportTier(val productId: String, val displayName: String, val price: String)
 val SUPPORT_TIERS = listOf(
     SupportTier("support_400", "작은 응원", "400원"),
     SupportTier("support_900", "감사해요", "900원"),
@@ -28,12 +25,18 @@ val SUPPORT_TIERS = listOf(
     SupportTier("support_2000", "최고예요!", "2,000원")
 )
 
+// 디바이스 슬롯 상품 (비소모성 - 최대 4개 추가 = 총 5대)
+// extra_slot_1 = 2번째 기기, extra_slot_2 = 3번째 기기 ...
+val DEVICE_SLOT_PRODUCT_IDS = listOf("extra_slot_1", "extra_slot_2", "extra_slot_3", "extra_slot_4")
+
 class BillingManager(private val context: Context) : PurchasesUpdatedListener {
 
     private val _billingState = MutableStateFlow<BillingState>(BillingState.Idle)
     val billingState: StateFlow<BillingState> = _billingState
 
-    private var billingClient: BillingClient = BillingClient.newBuilder(context)
+    private var onSlotPurchased: ((Int) -> Unit)? = null  // 구매된 총 슬롯 수 콜백
+
+    private val billingClient: BillingClient = BillingClient.newBuilder(context)
         .setListener(this)
         .enablePendingPurchases()
         .build()
@@ -43,80 +46,117 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
     sealed class BillingState {
         object Idle : BillingState()
         object Loading : BillingState()
-        data class Success(val productId: String) : BillingState()
+        data class SlotPurchased(val newTotalSlots: Int) : BillingState()
+        data class SupportPurchased(val productId: String) : BillingState()
         data class Error(val message: String) : BillingState()
     }
 
-    fun connect() {
+    fun connect(onSlotPurchased: (Int) -> Unit = {}) {
+        this.onSlotPurchased = onSlotPurchased
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                    queryProducts()
+                    queryAllProducts()
                 }
             }
             override fun onBillingServiceDisconnected() {}
         })
     }
 
-    private fun queryProducts() {
-        val productList = SUPPORT_TIERS.map {
+    private fun queryAllProducts() {
+        val allIds = SUPPORT_TIERS.map { it.productId } + DEVICE_SLOT_PRODUCT_IDS
+        val productList = allIds.map {
             QueryProductDetailsParams.Product.newBuilder()
-                .setProductId(it.productId)
+                .setProductId(it)
                 .setProductType(BillingClient.ProductType.INAPP)
                 .build()
         }
-        val params = QueryProductDetailsParams.newBuilder()
-            .setProductList(productList)
-            .build()
-
-        billingClient.queryProductDetailsAsync(params) { _, details ->
+        billingClient.queryProductDetailsAsync(
+            QueryProductDetailsParams.newBuilder().setProductList(productList).build()
+        ) { _, details ->
             productDetailsList.clear()
             productDetailsList.addAll(details)
         }
     }
 
+    // 현재 소유한 슬롯 수 조회 (앱 시작 시 복원용)
+    fun queryOwnedSlots(onResult: (Int) -> Unit) {
+        if (!billingClient.isReady) { onResult(0); return }
+        billingClient.queryPurchasesAsync(
+            QueryPurchasesParams.newBuilder()
+                .setProductType(BillingClient.ProductType.INAPP)
+                .build()
+        ) { result, purchases ->
+            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                val slots = purchases.count { p ->
+                    p.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                    p.products.any { it.startsWith("extra_slot_") }
+                }
+                onResult(slots)
+            } else {
+                onResult(0)
+            }
+        }
+    }
+
+    fun launchSlotPurchase(activity: Activity, currentSlots: Int) {
+        if (currentSlots >= DEVICE_SLOT_PRODUCT_IDS.size) {
+            _billingState.value = BillingState.Error("최대 슬롯(5대)에 도달했습니다")
+            return
+        }
+        val productId = DEVICE_SLOT_PRODUCT_IDS[currentSlots]
+        launchBillingFlow(activity, productId)
+    }
+
     fun launchBillingFlow(activity: Activity, productId: String) {
-        val productDetails = productDetailsList.find { it.productId == productId } ?: run {
+        val details = productDetailsList.find { it.productId == productId } ?: run {
             _billingState.value = BillingState.Error("상품 정보를 불러올 수 없습니다")
             return
         }
-
-        val productDetailsParams = BillingFlowParams.ProductDetailsParams.newBuilder()
-            .setProductDetails(productDetails)
-            .build()
-
-        val flowParams = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(listOf(productDetailsParams))
-            .build()
-
-        billingClient.launchBillingFlow(activity, flowParams)
+        val params = BillingFlowParams.newBuilder()
+            .setProductDetailsParamsList(
+                listOf(BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(details).build())
+            ).build()
+        billingClient.launchBillingFlow(activity, params)
     }
 
     override fun onPurchasesUpdated(result: BillingResult, purchases: List<Purchase>?) {
-        if (result.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
-            for (purchase in purchases) {
-                handlePurchase(purchase)
+        if (result.responseCode != BillingClient.BillingResponseCode.OK || purchases == null) return
+        for (purchase in purchases) {
+            if (purchase.purchaseState != Purchase.PurchaseState.PURCHASED) continue
+            val productId = purchase.products.firstOrNull() ?: continue
+            if (productId.startsWith("extra_slot_")) {
+                handleSlotPurchase(purchase)
+            } else {
+                handleSupportPurchase(purchase)
             }
         }
     }
 
-    private fun handlePurchase(purchase: Purchase) {
-        if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-            // 소모성 상품이므로 consume 처리
-            val consumeParams = ConsumeParams.newBuilder()
-                .setPurchaseToken(purchase.purchaseToken)
-                .build()
-            billingClient.consumeAsync(consumeParams) { result, _ ->
-                if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                    _billingState.value = BillingState.Success(
-                        purchase.products.firstOrNull() ?: ""
-                    )
-                }
+    private fun handleSlotPurchase(purchase: Purchase) {
+        val params = AcknowledgePurchaseParams.newBuilder()
+            .setPurchaseToken(purchase.purchaseToken).build()
+        billingClient.acknowledgePurchase(params) { result ->
+            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                val slotIndex = DEVICE_SLOT_PRODUCT_IDS.indexOf(purchase.products.firstOrNull())
+                val newTotalSlots = slotIndex + 1
+                _billingState.value = BillingState.SlotPurchased(newTotalSlots)
+                onSlotPurchased?.invoke(newTotalSlots)
             }
         }
     }
 
-    fun disconnect() {
-        billingClient.endConnection()
+    private fun handleSupportPurchase(purchase: Purchase) {
+        val consumeParams = ConsumeParams.newBuilder()
+            .setPurchaseToken(purchase.purchaseToken).build()
+        billingClient.consumeAsync(consumeParams) { result, _ ->
+            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                _billingState.value = BillingState.SupportPurchased(purchase.products.firstOrNull() ?: "")
+            }
+        }
     }
+
+    fun resetState() { _billingState.value = BillingState.Idle }
+
+    fun disconnect() { billingClient.endConnection() }
 }

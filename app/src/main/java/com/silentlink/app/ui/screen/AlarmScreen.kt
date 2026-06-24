@@ -137,40 +137,49 @@ fun AlarmScreen(viewModel: MainViewModel) {
                     }
                 }
             } else {
-                // 내가 상대방에게 설정한 알람
-                item {
-                    SectionLabel("내가 상대방에게 설정한 알람")
+                val selectedPartner = uiState.selectedPartnerForAlarm
+                val selectedUid = selectedPartner?.uid ?: ""
+
+                // 파트너 여럿이면 선택기 표시
+                if (uiState.partners.size > 1) {
+                    item {
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            uiState.partners.forEachIndexed { idx, partner ->
+                                SegmentedButton(
+                                    selected = partner.uid == selectedUid,
+                                    onClick = { viewModel.selectAlarmPartner(partner.uid) },
+                                    shape = SegmentedButtonDefaults.itemShape(index = idx, count = uiState.partners.size)
+                                ) { Text("기기 ${idx + 1}", fontSize = 12.sp) }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
                 }
 
-                if (uiState.alarmsForPartner.isEmpty()) {
-                    item {
-                        EmptyAlarmHint()
-                    }
+                // 내가 상대방에게 설정한 알람
+                item { SectionLabel("내가 상대방에게 설정한 알람") }
+
+                if (uiState.alarmsForSelectedPartner.isEmpty()) {
+                    item { EmptyAlarmHint() }
                 } else {
-                    items(uiState.alarmsForPartner, key = { it.id }) { alarm ->
+                    items(uiState.alarmsForSelectedPartner, key = { it.id }) { alarm ->
                         AlarmCard(
                             alarm = alarm,
-                            onToggle = { viewModel.toggleAlarmForPartner(alarm.id, !alarm.isEnabled) },
-                            onDelete = { viewModel.deleteAlarmForPartner(alarm.id) },
+                            onToggle = { viewModel.toggleAlarmFor(selectedUid, alarm.id, !alarm.isEnabled) },
+                            onDelete = { viewModel.deleteAlarmFor(selectedUid, alarm.id) },
                             onClick = { editingAlarm = alarm }
                         )
                     }
                 }
 
                 // 상대방이 나에게 설정한 알람
-                if (uiState.alarmsFromPartner.isNotEmpty()) {
+                if (uiState.alarmsFromPartners.isNotEmpty()) {
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
                         SectionLabel("상대방이 나에게 설정한 알람")
                     }
-                    items(uiState.alarmsFromPartner, key = { "p_${it.id}" }) { alarm ->
-                        AlarmCard(
-                            alarm = alarm,
-                            readOnly = true,
-                            onToggle = {},
-                            onDelete = {},
-                            onClick = {}
-                        )
+                    items(uiState.alarmsFromPartners, key = { "p_${it.id}" }) { alarm ->
+                        AlarmCard(alarm = alarm, readOnly = true, onToggle = {}, onDelete = {}, onClick = {})
                     }
                 }
 
@@ -185,7 +194,8 @@ fun AlarmScreen(viewModel: MainViewModel) {
             alarm = null,
             onDismiss = { showAddDialog = false },
             onSave = { alarm ->
-                viewModel.addAlarmForPartner(alarm)
+                val uid = uiState.selectedPartnerForAlarm?.uid ?: return@AlarmEditDialog
+                viewModel.addAlarmFor(uid, alarm)
                 showAddDialog = false
             }
         )
@@ -196,7 +206,8 @@ fun AlarmScreen(viewModel: MainViewModel) {
             alarm = alarm,
             onDismiss = { editingAlarm = null },
             onSave = { updated ->
-                viewModel.updateAlarmForPartner(updated)
+                val uid = uiState.selectedPartnerForAlarm?.uid ?: return@AlarmEditDialog
+                viewModel.updateAlarmFor(uid, updated)
                 editingAlarm = null
             }
         )

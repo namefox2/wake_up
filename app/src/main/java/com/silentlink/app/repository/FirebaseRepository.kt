@@ -1,14 +1,13 @@
 package com.silentlink.app.repository
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.gson.Gson
-import com.silentlink.app.model.ConnectionInfo
 import com.silentlink.app.model.DeviceStatus
-import com.silentlink.app.model.DndSchedule
 import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
@@ -16,7 +15,6 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import java.util.UUID
 import kotlin.random.Random
 
 class FirebaseRepository {
@@ -31,6 +29,25 @@ class FirebaseRepository {
 
     fun getCurrentUserId(): String? = auth.currentUser?.uid
 
+    fun isGoogleLinked(): Boolean =
+        auth.currentUser?.providerData?.any { it.providerId == "google.com" } == true
+
+    fun getGoogleEmail(): String? =
+        auth.currentUser?.providerData?.firstOrNull { it.providerId == "google.com" }?.email
+
+    suspend fun linkGoogleAccount(idToken: String): LinkResult {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        return try {
+            auth.currentUser?.linkWithCredential(credential)?.await()
+            LinkResult.LINKED
+        } catch (_: FirebaseAuthUserCollisionException) {
+            auth.signInWithCredential(credential).await()
+            LinkResult.RESTORED
+        } catch (_: Exception) {
+            LinkResult.FAILED
+        }
+    }
+
     fun generateInviteCode(): String {
         val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return (1..6).map { chars[Random.nextInt(chars.length)] }.joinToString("")
@@ -41,108 +58,100 @@ class FirebaseRepository {
         db.getReference("devices/$uid/inviteCode").setValue(inviteCode).await()
         db.getReference("devices/$uid/status").setValue(
             mapOf(
-                "isMuted" to false,
-                "volumeLevel" to "SOUND",
-                "isAccessAllowed" to true,
-                "isOnline" to true,
-                "lastUpdated" to System.currentTimeMillis(),
-                "activity" to "NONE"
+                "isMuted" to false, "volumeLevel" to "SOUND",
+                "isAccessAllowed" to true, "isOnline" to true,
+                "lastUpdated" to System.currentTimeMillis(), "activity" to "NONE"
             )
         ).await()
     }
 
+    // 파트너 연결 (멀티 지원)
+
+    suspend fun getPartnerUids(myUid: String): List<String> {
+        val snap = db.getReference("devices/$myUid/partnerIds").get().await()
+        if (snap.exists()) return snap.children.mapNotNull { it.key }.filter { it.isNotEmpty() }
+        val old = db.getReference("devices/$myUid/partnerId").get().await().getValue(String::class.java)
+        if (!old.isNullOrEmpty()) {
+            db.getReference("devices/$myUid/partnerIds/$old").setValue(true).await()
+            db.getReference("devices/$myUid/partnerId").removeValue().await()
+            return listOf(old)
+        }
+        return emptyList()
+    }
+
     suspend fun connectWithCode(myUid: String, partnerCode: String): ConnectResult {
-        val snapshot = db.getReference("codes/$partnerCode").get().await()
-        val partnerUid = snapshot.getValue(String::class.java) ?: return ConnectResult.NOT_FOUND
-
-        // 1대1 제한: 상대 기기가 이미 다른 기기와 연결 중이면 거부
-        val existing = db.getReference("devices/$partnerUid/partnerId").get().await()
-            .getValue(String::class.java)
-        if (!existing.isNullOrEmpty() && existing != myUid) return ConnectResult.ALREADY_CONNECTED
-
-        db.getReference("devices/$myUid/partnerId").setValue(partnerUid).await()
-        db.getReference("devices/$partnerUid/partnerId").setValue(myUid).await()
-        db.getReference("devices/$myUid/connectedAt").setValue(System.currentTimeMillis()).await()
-        db.getReference("devices/$partnerUid/connectedAt").setValue(System.currentTimeMillis()).await()
+        val partnerUid = db.getReference("codes/$partnerCode").get().await()
+            .getValue(String::class.java) ?: return ConnectResult.NOT_FOUND
+        if (partnerUid == myUid) return ConnectResult.NOT_FOUND
+        if (db.getReference("devices/$myUid/partnerIds/$partnerUid").get().await().exists())
+            return ConnectResult.ALREADY_CONNECTED
+        db.getReference("devices/$myUid/partnerIds/$partnerUid").setValue(true).await()
+        db.getReference("devices/$partnerUid/partnerIds/$myUid").setValue(true).await()
         return ConnectResult.SUCCESS
     }
+
+    suspend fun disconnectFromPartner(myUid: String, partnerUid: String) {
+        db.getReference("devices/$myUid/partnerIds/$partnerUid").removeValue().await()
+        db.getReference("devices/$partnerUid/partnerIds/$myUid").removeValue().await()
+    }
+
+    suspend fun disconnectAll(myUid: String) {
+        getPartnerUids(myUid).forEach { partnerUid ->
+            runCatching { db.getReference("devices/$partnerUid/partnerIds/$myUid").removeValue().await() }
+        }
+        db.getReference("devices/$myUid/partnerIds").removeValue().await()
+    }
+
+    // 슬롯 구매 기록
+
+    suspend fun getPurchasedSlots(uid: String): Int =
+        db.getReference("users/$uid/purchasedSlots").get().await()
+            .getValue(Int::class.java) ?: 0
+
+    suspend fun setPurchasedSlots(uid: String, slots: Int) {
+        db.getReference("users/$uid/purchasedSlots").setValue(slots).await()
+    }
+
+    // 상태 관찰
 
     fun observePartnerStatus(partnerUid: String): Flow<DeviceStatus> = callbackFlow {
         val ref = db.getReference("devices/$partnerUid/status")
         val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val isMuted = snapshot.child("isMuted").getValue(Boolean::class.java) ?: false
-                val volumeStr = snapshot.child("volumeLevel").getValue(String::class.java) ?: "SOUND"
-                val level = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrElse {
-                    if (isMuted) VolumeLevel.MUTE else VolumeLevel.SOUND
-                }
-                val isAccessAllowed = snapshot.child("isAccessAllowed").getValue(Boolean::class.java) ?: true
-                val isOnline = snapshot.child("isOnline").getValue(Boolean::class.java) ?: false
-                val lastUpdated = snapshot.child("lastUpdated").getValue(Long::class.java) ?: 0L
-                val activityStr = snapshot.child("activity").getValue(String::class.java) ?: "NONE"
-                trySend(
-                    DeviceStatus(
-                        isMuted = level == VolumeLevel.MUTE || level == VolumeLevel.VIBRATE,
-                        volumeLevel = level,
-                        isAccessAllowed = isAccessAllowed,
-                        isOnline = isOnline,
-                        lastUpdated = lastUpdated,
-                        activity = runCatching { UserActivity.valueOf(activityStr) }.getOrDefault(UserActivity.NONE)
-                    )
-                )
-            }
+            override fun onDataChange(snapshot: DataSnapshot) { trySend(snapshot.toDeviceStatus()) }
             override fun onCancelled(error: DatabaseError) {}
         }
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
     }
 
-    suspend fun readPartnerStatus(partnerUid: String): DeviceStatus? {
-        return try {
-            val snapshot = db.getReference("devices/$partnerUid/status").get().await()
-            val isMuted = snapshot.child("isMuted").getValue(Boolean::class.java) ?: false
-            val volumeStr = snapshot.child("volumeLevel").getValue(String::class.java) ?: "SOUND"
-            val level = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrElse {
-                if (isMuted) VolumeLevel.MUTE else VolumeLevel.SOUND
-            }
-            val isAccessAllowed = snapshot.child("isAccessAllowed").getValue(Boolean::class.java) ?: true
-            val isOnline = snapshot.child("isOnline").getValue(Boolean::class.java) ?: false
-            val lastUpdated = snapshot.child("lastUpdated").getValue(Long::class.java) ?: 0L
-            val activityStr = snapshot.child("activity").getValue(String::class.java) ?: "NONE"
-            DeviceStatus(
-                isMuted = level == VolumeLevel.MUTE || level == VolumeLevel.VIBRATE,
-                volumeLevel = level,
-                isAccessAllowed = isAccessAllowed,
-                isOnline = isOnline,
-                lastUpdated = lastUpdated,
-                activity = runCatching { UserActivity.valueOf(activityStr) }.getOrDefault(UserActivity.NONE)
-            )
-        } catch (_: Exception) { null }
+    suspend fun readPartnerStatus(partnerUid: String): DeviceStatus? =
+        runCatching { db.getReference("devices/$partnerUid/status").get().await().toDeviceStatus() }.getOrNull()
+
+    private fun DataSnapshot.toDeviceStatus(): DeviceStatus {
+        val volumeStr = child("volumeLevel").getValue(String::class.java) ?: "SOUND"
+        val isMuted = child("isMuted").getValue(Boolean::class.java) ?: false
+        val level = runCatching { VolumeLevel.valueOf(volumeStr) }.getOrElse {
+            if (isMuted) VolumeLevel.MUTE else VolumeLevel.SOUND
+        }
+        return DeviceStatus(
+            isMuted = level == VolumeLevel.MUTE || level == VolumeLevel.VIBRATE,
+            volumeLevel = level,
+            isAccessAllowed = child("isAccessAllowed").getValue(Boolean::class.java) ?: true,
+            isOnline = child("isOnline").getValue(Boolean::class.java) ?: false,
+            lastUpdated = child("lastUpdated").getValue(Long::class.java) ?: 0L,
+            activity = runCatching {
+                UserActivity.valueOf(child("activity").getValue(String::class.java) ?: "NONE")
+            }.getOrDefault(UserActivity.NONE)
+        )
     }
 
-    suspend fun updateMuteStatus(uid: String, muted: Boolean) {
-        db.getReference("devices/$uid/status").updateChildren(
-            mapOf("isMuted" to muted, "lastUpdated" to System.currentTimeMillis())
-        ).await()
-    }
-
-    suspend fun updateVolumeStatus(uid: String, level: VolumeLevel) {
-        val muted = level == VolumeLevel.MUTE || level == VolumeLevel.VIBRATE
-        db.getReference("devices/$uid/status").updateChildren(
-            mapOf(
-                "isMuted" to muted,
-                "volumeLevel" to level.name,
-                "lastUpdated" to System.currentTimeMillis()
-            )
-        ).await()
-    }
+    // 명령
 
     fun observeMyCommands(myUid: String): Flow<Map<String, Any>> = callbackFlow {
         val ref = db.getReference("devices/$myUid/commands")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val map = snapshot.value as? Map<String, Any> ?: return
-                trySend(map)
+                (snapshot.value as? Map<String, Any>)?.let { trySend(it) }
             }
             override fun onCancelled(error: DatabaseError) {}
         }
@@ -154,29 +163,17 @@ class FirebaseRepository {
         db.getReference("devices/$partnerUid/commands/$command").setValue(value).await()
     }
 
-    suspend fun updateMyStatus(myUid: String, status: DeviceStatus) {
-        db.getReference("devices/$myUid/status").setValue(
-            mapOf(
-                "isMuted" to status.isMuted,
-                "volumeLevel" to status.volumeLevel.name,
-                "isAccessAllowed" to status.isAccessAllowed,
-                "isOnline" to status.isOnline,
-                "lastUpdated" to System.currentTimeMillis()
-            )
+    suspend fun deleteCommand(uid: String, command: String) {
+        db.getReference("devices/$uid/commands/$command").removeValue().await()
+    }
+
+    // 상태 업데이트
+
+    suspend fun updateVolumeStatus(uid: String, level: VolumeLevel) {
+        val muted = level == VolumeLevel.MUTE || level == VolumeLevel.VIBRATE
+        db.getReference("devices/$uid/status").updateChildren(
+            mapOf("isMuted" to muted, "volumeLevel" to level.name, "lastUpdated" to System.currentTimeMillis())
         ).await()
-    }
-
-    suspend fun getPartnerUid(myUid: String): String? {
-        return db.getReference("devices/$myUid/partnerId").get().await().getValue(String::class.java)
-    }
-
-    suspend fun disconnect(myUid: String) {
-        val partnerUid = getPartnerUid(myUid)
-        db.getReference("devices/$myUid/partnerId").removeValue().await()
-        db.getReference("devices/$myUid/connectedAt").removeValue().await()
-        partnerUid?.let {
-            db.getReference("devices/$it/partnerId").removeValue().await()
-        }
     }
 
     suspend fun updateAccessAllowed(myUid: String, allowed: Boolean) {
@@ -187,32 +184,24 @@ class FirebaseRepository {
         db.getReference("devices/$myUid/status/activity").setValue(activity.name).await()
     }
 
-    // ── 알람 CRUD ──────────────────────────────────────────────
+    // 알람 CRUD
 
     suspend fun addAlarm(targetUid: String, alarm: RemoteAlarm) {
-        val ref = db.getReference("devices/$targetUid/alarms/${alarm.id}")
-        val map = mapOf(
-            "id" to alarm.id,
-            "label" to alarm.label,
-            "hour" to alarm.hour,
-            "minute" to alarm.minute,
-            "days" to alarm.days.sorted().joinToString(","),
-            "isEnabled" to alarm.isEnabled,
-            "createdAt" to alarm.createdAt,
-            "alarmSound" to alarm.alarmSound,
-            "alarmVibrate" to alarm.alarmVibrate
-        )
-        ref.setValue(map).await()
+        db.getReference("devices/$targetUid/alarms/${alarm.id}").setValue(
+            mapOf(
+                "id" to alarm.id, "label" to alarm.label,
+                "hour" to alarm.hour, "minute" to alarm.minute,
+                "days" to alarm.days.sorted().joinToString(","),
+                "isEnabled" to alarm.isEnabled, "createdAt" to alarm.createdAt,
+                "alarmSound" to alarm.alarmSound, "alarmVibrate" to alarm.alarmVibrate
+            )
+        ).await()
     }
 
     suspend fun updateAlarm(targetUid: String, alarm: RemoteAlarm) = addAlarm(targetUid, alarm)
 
     suspend fun deleteAlarm(targetUid: String, alarmId: String) {
         db.getReference("devices/$targetUid/alarms/$alarmId").removeValue().await()
-    }
-
-    suspend fun deleteCommand(uid: String, command: String) {
-        db.getReference("devices/$uid/commands/$command").removeValue().await()
     }
 
     fun observeAlarms(uid: String): Flow<List<RemoteAlarm>> = callbackFlow {
@@ -222,27 +211,29 @@ class FirebaseRepository {
                 val alarms = snapshot.children.mapNotNull { child ->
                     runCatching {
                         val id = child.child("id").getValue(String::class.java) ?: return@runCatching null
-                        val label = child.child("label").getValue(String::class.java) ?: ""
-                        val hour = (child.child("hour").getValue(Long::class.java) ?: 7L).toInt()
-                        val minute = (child.child("minute").getValue(Long::class.java) ?: 0L).toInt()
-                        // days: 문자열 "1,2,3,4,5" 형식 또는 예전 List 형식 모두 처리
                         val daysNode = child.child("days")
                         val days: Set<Int> = when {
-                            daysNode.getValue(String::class.java) != null -> {
-                                val s = daysNode.getValue(String::class.java)!!
-                                s.split(",").filter { it.isNotBlank() }.mapNotNull { it.trim().toIntOrNull() }.toSet()
-                            }
+                            daysNode.getValue(String::class.java) != null ->
+                                daysNode.getValue(String::class.java)!!
+                                    .split(",").filter { it.isNotBlank() }
+                                    .mapNotNull { it.trim().toIntOrNull() }.toSet()
                             else -> {
                                 @Suppress("UNCHECKED_CAST")
-                                val raw = daysNode.getValue(List::class.java) as? List<*> ?: emptyList<Any>()
-                                raw.mapNotNull { (it as? Long)?.toInt() ?: (it as? Int) }.toSet()
+                                (daysNode.getValue(List::class.java) as? List<*> ?: emptyList<Any>())
+                                    .mapNotNull { (it as? Long)?.toInt() ?: (it as? Int) }.toSet()
                             }
                         }
-                        val isEnabled = child.child("isEnabled").getValue(Boolean::class.java) ?: true
-                        val createdAt = child.child("createdAt").getValue(Long::class.java) ?: 0L
-                        val alarmSound = child.child("alarmSound").getValue(Boolean::class.java) ?: true
-                        val alarmVibrate = child.child("alarmVibrate").getValue(Boolean::class.java) ?: true
-                        RemoteAlarm(id, label, hour, minute, days, isEnabled, createdAt, alarmSound, alarmVibrate)
+                        RemoteAlarm(
+                            id = id,
+                            label = child.child("label").getValue(String::class.java) ?: "",
+                            hour = (child.child("hour").getValue(Long::class.java) ?: 7L).toInt(),
+                            minute = (child.child("minute").getValue(Long::class.java) ?: 0L).toInt(),
+                            days = days,
+                            isEnabled = child.child("isEnabled").getValue(Boolean::class.java) ?: true,
+                            createdAt = child.child("createdAt").getValue(Long::class.java) ?: 0L,
+                            alarmSound = child.child("alarmSound").getValue(Boolean::class.java) ?: true,
+                            alarmVibrate = child.child("alarmVibrate").getValue(Boolean::class.java) ?: true
+                        )
                     }.getOrNull()
                 }
                 trySend(alarms)
@@ -254,4 +245,5 @@ class FirebaseRepository {
     }
 }
 
-enum class ConnectResult { SUCCESS, NOT_FOUND, ALREADY_CONNECTED }
+enum class ConnectResult { SUCCESS, NOT_FOUND, ALREADY_CONNECTED, SLOT_LIMIT_REACHED }
+enum class LinkResult { LINKED, RESTORED, FAILED }

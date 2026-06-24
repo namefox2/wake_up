@@ -65,6 +65,9 @@ dependencies {
     // AdMob
     implementation(libs.play.services.ads)
 
+    // Google Sign-In
+    implementation(libs.play.services.auth)
+
     // Google Play Billing
     implementation(libs.billing)
 

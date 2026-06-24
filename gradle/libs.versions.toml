@@ -13,6 +13,7 @@ datastorePreferences = "1.1.1"
 firebaseBom = "33.5.1"
 admob = "23.3.0"
 billing = "7.1.1"
+playServicesAuth = "21.2.0"
 accompanistPermissions = "0.36.0"
 coroutines = "1.9.0"
 gson = "2.10.1"
@@ -40,6 +41,7 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.r
 firebase-database = { group = "com.google.firebase", name = "firebase-database-ktx" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "admob" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 billing = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanistPermissions" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }

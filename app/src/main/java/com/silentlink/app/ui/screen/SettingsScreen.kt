@@ -5,6 +5,8 @@ import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,12 +30,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.silentlink.app.billing.BillingManager
 import com.silentlink.app.billing.SUPPORT_TIERS
 import com.silentlink.app.model.AppTheme
 import com.silentlink.app.ui.MainViewModel
 import com.silentlink.app.ui.theme.AccentBlue
 import com.silentlink.app.ui.theme.DangerRed
+import com.silentlink.app.ui.theme.SuccessGreen
 import com.silentlink.app.ui.theme.toSilentLinkColors
 
 @Composable
@@ -42,10 +44,20 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val colors = MaterialTheme.colorScheme
     val context = LocalContext.current
 
-    val billingManager = remember { BillingManager(context) }
+    val billingManager = viewModel.billingManager
     val clipboard = LocalClipboardManager.current
-    LaunchedEffect(Unit) { billingManager.connect() }
-    DisposableEffect(Unit) { onDispose { billingManager.disconnect() } }
+
+    // Google Sign-In launcher
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onGoogleSignInResult(result.data)
+    }
+    LaunchedEffect(Unit) {
+        viewModel.googleSignInRequest.collect { intent ->
+            googleSignInLauncher.launch(intent)
+        }
+    }
 
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -157,6 +169,64 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // 디바이스 슬롯
+        SettingSection(title = "디바이스 슬롯") {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("연결 가능 기기", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onBackground)
+                        Text(
+                            "현재 ${uiState.partners.size}대 연결 / 최대 ${uiState.maxDevices}대 허용",
+                            fontSize = 12.sp, color = colors.onSurface.copy(alpha = 0.55f),
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    Text(
+                        "${uiState.partners.size}/${uiState.maxDevices}",
+                        fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                        color = if (uiState.partners.size >= uiState.maxDevices) DangerRed else AccentBlue
+                    )
+                }
+
+                uiState.googleEmail?.let { email ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AccountCircle, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(email, fontSize = 11.sp, color = SuccessGreen)
+                    }
+                }
+
+                if (uiState.maxDevices < 5) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { viewModel.requestSlotPurchase(context as Activity) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("슬롯 추가 (₩1,000)", fontSize = 14.sp)
+                    }
+                    Text(
+                        "슬롯 1개당 기기 1대 추가 (최대 5대)\n구매 시 Google 계정 연동이 필요합니다",
+                        fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.45f),
+                        modifier = Modifier.padding(top = 6.dp), lineHeight = 16.sp
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("최대 슬롯에 도달했습니다 (5대)", fontSize = 12.sp, color = SuccessGreen)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // 개발자 후원
         SettingSection(title = "개발자 후원") {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -175,7 +245,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                             rowTiers.forEach { tier ->
                                 OutlinedButton(
                                     onClick = {
-                                        billingManager.launchBillingFlow(context as Activity, tier.productId)
+                                        viewModel.billingManager.launchBillingFlow(context as Activity, tier.productId)
                                     },
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(10.dp),
@@ -225,8 +295,8 @@ fun SettingsScreen(viewModel: MainViewModel) {
             SettingSection(title = "연결") {
                 SettingItem(
                     icon = Icons.Default.LinkOff,
-                    title = "연결 해제",
-                    subtitle = "상대방과의 연결을 끊습니다",
+                    title = "모두 연결 해제",
+                    subtitle = "연결된 기기 ${uiState.partners.size}대 모두 해제",
                     iconTint = DangerRed,
                     titleColor = DangerRed,
                     onClick = { showDisconnectDialog = true }
@@ -280,7 +350,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.disconnect()
+                        viewModel.disconnectAll()
                         showDisconnectDialog = false
                     }
                 ) { Text("해제", color = DangerRed) }

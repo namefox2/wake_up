@@ -1,5 +1,11 @@
 package com.silentlink.app.model
 
+data class PartnerState(
+    val uid: String = "",
+    val status: DeviceStatus = DeviceStatus(),
+    val alarmsForThem: List<RemoteAlarm> = emptyList()
+)
+
 data class DeviceStatus(
     val isMuted: Boolean = false,
     val volumeLevel: VolumeLevel = VolumeLevel.SOUND,
