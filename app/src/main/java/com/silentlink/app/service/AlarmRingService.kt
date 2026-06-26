@@ -117,7 +117,10 @@ class AlarmRingService : Service() {
                     prepare()
                     start()
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                mediaPlayer?.release()
+                mediaPlayer = null
+            }
         }
     }
 

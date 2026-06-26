@@ -58,6 +58,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var restoreInfoJob: Job? = null
     private var pendingSlotPurchaseActivity: Activity? = null
+    private val partnerListenerJobs = mutableMapOf<String, List<Job>>()
 
     companion object {
         val KEY_ONBOARDED    = booleanPreferencesKey("onboarded")
@@ -189,7 +190,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun listenToPartner(partnerUid: String) {
-        viewModelScope.launch {
+        partnerListenerJobs[partnerUid]?.forEach { it.cancel() }
+        val statusJob = viewModelScope.launch {
             repository.observePartnerStatus(partnerUid).collect { status ->
                 _uiState.value = _uiState.value.copy(
                     partners = _uiState.value.partners.map { p ->
@@ -198,7 +200,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
-        viewModelScope.launch {
+        val alarmsJob = viewModelScope.launch {
             repository.observeAlarms(partnerUid).collect { alarms ->
                 _uiState.value = _uiState.value.copy(
                     partners = _uiState.value.partners.map { p ->
@@ -207,6 +209,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
+        partnerListenerJobs[partnerUid] = listOf(statusJob, alarmsJob)
     }
 
     private fun listenToMyAlarms(myUid: String) {
@@ -303,6 +306,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // 파트너 연결 해제
 
     fun disconnectFromPartner(partnerUid: String) {
+        partnerListenerJobs[partnerUid]?.forEach { it.cancel() }
+        partnerListenerJobs.remove(partnerUid)
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             runCatching { repository.disconnectFromPartner(myUid, partnerUid) }
@@ -314,6 +319,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun disconnectAll() {
+        partnerListenerJobs.values.forEach { jobs -> jobs.forEach { it.cancel() } }
+        partnerListenerJobs.clear()
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             SilentLinkService.stop(getApplication())
