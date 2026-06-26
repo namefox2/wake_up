@@ -9,8 +9,7 @@ import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.MobileAds
 
 object AdMobManager {
-    // 테스트 배너 광고 ID (배포 시 실제 ID로 교체)
-    const val BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+    const val BANNER_AD_UNIT_ID = "ca-app-pub-9392221797396472/2615383609"
 
     fun initialize(context: Context) {
         MobileAds.initialize(context)

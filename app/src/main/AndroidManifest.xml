@@ -68,10 +68,9 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- AdMob App ID (테스트용, 실제 배포 시 교체 필요) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-9392221797396472~2261984214" />
 
     </application>
 
