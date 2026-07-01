@@ -110,6 +110,18 @@ class FirebaseRepository {
         db.getReference("devices/$myUid/partnerIds").removeValue().await()
     }
 
+    fun observePartnerIds(myUid: String): Flow<List<String>> = callbackFlow {
+        val ref = db.getReference("devices/$myUid/partnerIds")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(snapshot.children.mapNotNull { it.key }.filter { it.isNotEmpty() })
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
     fun observeControllers(myUid: String): Flow<List<String>> = callbackFlow {
         val ref = db.getReference("devices/$myUid/registeredBy")
         val listener = object : ValueEventListener {

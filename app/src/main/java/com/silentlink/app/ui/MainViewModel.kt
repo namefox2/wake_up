@@ -122,6 +122,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         partnerUids.forEach { listenToPartner(it) }
         listenToMyAlarms(myUid)
         listenToControllers(myUid)
+        listenToMyPartnerIds(myUid)
 
         // 구버전 DataStore 마이그레이션
         if (prefs[KEY_PARTNER_UID] != null && prefs[KEY_PARTNER_UIDS] == null) {
@@ -229,6 +230,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ControllerState(uid = uid, inviteCode = code)
                 }
                 _uiState.value = _uiState.value.copy(controllers = controllers)
+            }
+        }
+    }
+
+    private fun listenToMyPartnerIds(myUid: String) {
+        var initialized = false
+        viewModelScope.launch {
+            repository.observePartnerIds(myUid).collect { firebaseUids ->
+                val currentUids = _uiState.value.partners.map { it.uid }.toSet()
+                val incoming = firebaseUids.toSet()
+                val removed = currentUids - incoming
+                // 첫 emit: 추가는 loadPersistedState에서 이미 처리 — 제거만 확인
+                val added = if (initialized) incoming - currentUids else emptySet()
+                initialized = true
+                if (removed.isEmpty() && added.isEmpty()) return@collect
+
+                removed.forEach { uid ->
+                    partnerListenerJobs[uid]?.forEach { it.cancel() }
+                    partnerListenerJobs.remove(uid)
+                }
+                added.forEach { uid -> listenToPartner(uid) }
+
+                val newPartners = firebaseUids.map { uid ->
+                    _uiState.value.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
+                }
+                _uiState.value = _uiState.value.copy(partners = newPartners)
+                savePartnerUids(firebaseUids)
             }
         }
     }
