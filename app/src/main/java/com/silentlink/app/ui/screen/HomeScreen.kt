@@ -178,11 +178,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                             if (uiState.isRefreshingCode) {
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                             } else {
-                                Text(
-                                    text = uiState.myCode.chunked(3).joinToString(" - "),
-                                    fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace, color = AccentBlue, letterSpacing = 1.sp
-                                )
+                                InviteCodeDisplay(code = uiState.myCode)
                             }
                         }
                         Row {
@@ -863,6 +859,43 @@ private fun AccessToggleCard(isAllowed: Boolean, onToggle: (Boolean) -> Unit) {
                     uncheckedThumbColor = Color.White, uncheckedTrackColor = DangerRed.copy(alpha = 0.5f)
                 )
             )
+        }
+    }
+}
+
+@Composable
+private fun InviteCodeDisplay(code: String) {
+    val chars = code.uppercase().padEnd(6).take(6)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        chars.forEachIndexed { index, ch ->
+            if (index == 3) {
+                Text(
+                    text = "-",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AccentBlue.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(horizontal = 2.dp)
+                )
+            }
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(width = 30.dp, height = 36.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AccentBlue.copy(alpha = 0.12f))
+            ) {
+                Text(
+                    text = ch.toString(),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = AccentBlue,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
