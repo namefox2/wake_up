@@ -67,6 +67,48 @@ fun HomeScreen(viewModel: MainViewModel) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    var showPermDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        viewModel.showPermissionGuide.collect {
+            canWriteSettings = audioManager.canWriteSettings()
+            canSetMute = audioManager.canSetMute()
+            if (!canWriteSettings || !canSetMute) showPermDialog = true
+        }
+    }
+
+    if (showPermDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermDialog = false },
+            title = { Text("권한 설정 필요") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("상대방이 내 기기를 제어할 수 있도록\n아래 권한을 허용해 주세요.", fontSize = 14.sp)
+                    if (!canWriteSettings) {
+                        OutlinedButton(
+                            onClick = {
+                                context.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                })
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            border = BorderStroke(1.dp, AccentBlue)
+                        ) { Text("시스템 설정 변경 허용", color = AccentBlue) }
+                    }
+                    if (!canSetMute) {
+                        OutlinedButton(
+                            onClick = {
+                                context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            border = BorderStroke(1.dp, AccentBlue)
+                        ) { Text("방해금지 접근 허용 (무음 설정)", color = AccentBlue) }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showPermDialog = false }) { Text("나중에") } }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -195,9 +237,11 @@ fun HomeScreen(viewModel: MainViewModel) {
                         canWriteSettings = canWriteSettings,
                         canSetMute = canSetMute,
                         volumeRestoreInfo = uiState.volumeRestoreInfo,
+                        deviceNames = uiState.deviceNames,
                         onVolumeSelect = { uid, level -> viewModel.sendVolumeCommandTo(uid, level) },
                         onDisconnect = { uid -> viewModel.disconnectFromPartner(uid) },
                         onRemoveController = { uid -> viewModel.removeController(uid) },
+                        onSetDeviceName = { uid, name -> viewModel.setDeviceName(uid, name) },
                         onConnect = { code -> viewModel.connectWithPartnerCode(code) },
                         onGrantPermission = {
                             context.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
@@ -228,9 +272,11 @@ private fun PartnerListTab(
     canWriteSettings: Boolean,
     canSetMute: Boolean,
     volumeRestoreInfo: String?,
+    deviceNames: Map<String, String>,
     onVolumeSelect: (String, VolumeLevel) -> Unit,
     onDisconnect: (String) -> Unit,
     onRemoveController: (String) -> Unit,
+    onSetDeviceName: (String, String) -> Unit,
     onConnect: (String) -> Unit,
     onGrantPermission: () -> Unit,
     onGrantDndPermission: () -> Unit,
@@ -346,11 +392,13 @@ private fun PartnerListTab(
             if (index > 0) Spacer(modifier = Modifier.height(12.dp))
             PartnerCard(
                 partner = partner,
+                name = deviceNames[partner.uid],
                 canWriteSettings = canWriteSettings,
                 canSetMute = canSetMute,
                 restoreInfo = if (index == 0) volumeRestoreInfo else null,
                 onVolumeSelect = { level -> onVolumeSelect(partner.uid, level) },
                 onDisconnect = { onDisconnect(partner.uid) },
+                onRename = { name -> onSetDeviceName(partner.uid, name) },
                 onGrantPermission = onGrantPermission,
                 onGrantDndPermission = onGrantDndPermission
             )
@@ -368,17 +416,43 @@ private fun PartnerListTab(
         Spacer(modifier = Modifier.height(8.dp))
         controllers.forEach { controller ->
             var showBlockDialog by remember { mutableStateOf(false) }
+            var showRenameDialog by remember { mutableStateOf(false) }
+            var renameInput by remember { mutableStateOf(deviceNames[controller.uid] ?: "") }
+            val displayName = deviceNames[controller.uid] ?: "코드 ${controller.inviteCode}"
+
             if (showBlockDialog) {
                 AlertDialog(
                     onDismissRequest = { showBlockDialog = false },
                     title = { Text("제어 차단") },
-                    text = { Text("코드 ${controller.inviteCode} 기기가 더 이상 내 기기를 제어할 수 없게 됩니다.") },
+                    text = { Text("$displayName 기기가 더 이상 내 기기를 제어할 수 없게 됩니다.") },
                     confirmButton = {
                         TextButton(onClick = { onRemoveController(controller.uid); showBlockDialog = false },
                             colors = ButtonDefaults.textButtonColors(contentColor = DangerRed)
                         ) { Text("차단") }
                     },
                     dismissButton = { TextButton(onClick = { showBlockDialog = false }) { Text("취소") } }
+                )
+            }
+            if (showRenameDialog) {
+                AlertDialog(
+                    onDismissRequest = { showRenameDialog = false },
+                    title = { Text("기기 이름 설정") },
+                    text = {
+                        OutlinedTextField(
+                            value = renameInput,
+                            onValueChange = { renameInput = it.take(20) },
+                            placeholder = { Text("예: 남자친구, 엄마") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            onSetDeviceName(controller.uid, renameInput)
+                            showRenameDialog = false
+                        }) { Text("저장") }
+                    },
+                    dismissButton = { TextButton(onClick = { showRenameDialog = false }) { Text("취소") } }
                 )
             }
             Card(
@@ -391,8 +465,19 @@ private fun PartnerListTab(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text("코드 ${controller.inviteCode}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colors.onSurface)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(displayName, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colors.onSurface)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                Icons.Default.Edit, contentDescription = "이름 변경",
+                                tint = colors.onSurface.copy(alpha = 0.35f),
+                                modifier = Modifier.size(14.dp).clickable {
+                                    renameInput = deviceNames[controller.uid] ?: ""
+                                    showRenameDialog = true
+                                }
+                            )
+                        }
                         Text("이 기기가 나를 제어할 수 있습니다", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.5f))
                     }
                     TextButton(
@@ -410,24 +495,50 @@ private fun PartnerListTab(
 @Composable
 private fun PartnerCard(
     partner: PartnerState,
+    name: String?,
     canWriteSettings: Boolean,
     canSetMute: Boolean,
     restoreInfo: String?,
     onVolumeSelect: (VolumeLevel) -> Unit,
     onDisconnect: () -> Unit,
+    onRename: (String) -> Unit,
     onGrantPermission: () -> Unit,
     onGrantDndPermission: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     var pendingLevel by remember { mutableStateOf<VolumeLevel?>(null) }
     var showDisconnectDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var renameInput by remember { mutableStateOf(name ?: "") }
     val status = partner.status
     val hasActivity = status.activity != UserActivity.NONE
+    val displayName = name ?: "연결된 기기"
 
     val statusColor = when (status.volumeLevel) {
         VolumeLevel.MUTE    -> DangerRed
         VolumeLevel.VIBRATE -> AccentBlue
         VolumeLevel.SOUND   -> SuccessGreen
+    }
+
+    // 이름 변경 다이얼로그
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("기기 이름 설정") },
+            text = {
+                OutlinedTextField(
+                    value = renameInput,
+                    onValueChange = { renameInput = it.take(20) },
+                    placeholder = { Text("예: 남자친구, 엄마") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { onRename(renameInput); showRenameDialog = false }) { Text("저장") }
+            },
+            dismissButton = { TextButton(onClick = { showRenameDialog = false }) { Text("취소") } }
+        )
     }
 
     // 전환 확인 다이얼로그
@@ -441,7 +552,7 @@ private fun PartnerCard(
         AlertDialog(
             onDismissRequest = { pendingLevel = null },
             title = { Text("${level.icon} $levelDesc 모드로 전환", fontWeight = FontWeight.Bold) },
-            text = { Text("상대방 기기를 $levelDesc 상태로 전환할까요?\n\n10분 후 원래 상태로 자동 복원됩니다") },
+            text = { Text("$displayName 기기를 $levelDesc 상태로 전환할까요?\n\n10분 후 원래 상태로 자동 복원됩니다") },
             confirmButton = {
                 TextButton(onClick = { onVolumeSelect(level); pendingLevel = null }) {
                     Text("전환", color = levelColor, fontWeight = FontWeight.Bold)
@@ -455,7 +566,7 @@ private fun PartnerCard(
         AlertDialog(
             onDismissRequest = { showDisconnectDialog = false },
             title = { Text("연결 해제") },
-            text = { Text("이 기기와의 연결을 해제할까요?") },
+            text = { Text("$displayName 와의 연결을 해제할까요?") },
             confirmButton = {
                 TextButton(onClick = { onDisconnect(); showDisconnectDialog = false }) {
                     Text("해제", color = DangerRed)
@@ -492,79 +603,41 @@ private fun PartnerCard(
                 }
             }
 
-            // 상태 행
+            // 헤더: 이름 + 현재 상태 + 연결 해제
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text("현재 상태", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.55f))
-                    Spacer(modifier = Modifier.height(4.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(displayName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurface)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.Edit, contentDescription = "이름 변경",
+                            tint = colors.onSurface.copy(alpha = 0.3f),
+                            modifier = Modifier.size(13.dp).clickable {
+                                renameInput = name ?: ""
+                                showRenameDialog = true
+                            }
+                        )
+                    }
                     Text(
                         "${status.volumeLevel.icon} ${status.volumeLevel.label}",
-                        fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = statusColor
+                        fontSize = 12.sp, color = statusColor
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(44.dp).clip(CircleShape).background(statusColor.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) { Text(status.volumeLevel.icon, fontSize = 20.sp) }
-                    if (!hasActivity) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        IconButton(onClick = { showDisconnectDialog = true }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.LinkOff, contentDescription = "연결 해제", tint = colors.onSurface.copy(alpha = 0.35f), modifier = Modifier.size(16.dp))
-                        }
+                if (!hasActivity) {
+                    IconButton(onClick = { showDisconnectDialog = true }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.LinkOff, contentDescription = "연결 해제", tint = colors.onSurface.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
                     }
                 }
             }
 
-            HorizontalDivider(color = colors.outline.copy(alpha = 0.15f))
-
-            // 권한 경고
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                if (!canWriteSettings) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                            .background(AccentBlue.copy(alpha = 0.1f)).clickable(onClick = onGrantPermission)
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("⚙️", fontSize = 13.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("시스템 설정 변경 권한 필요", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = AccentBlue)
-                            Text("탭하여 허용 → SilentLink 켜기", fontSize = 10.sp, color = AccentBlue.copy(alpha = 0.7f))
-                        }
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(14.dp))
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                if (!canSetMute) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                            .background(DangerRed.copy(alpha = 0.08f)).clickable(onClick = onGrantDndPermission)
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("🔕", fontSize = 13.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("무음 모드 권한 필요", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = DangerRed)
-                            Text("탭하여 방해금지 접근 허용", fontSize = 10.sp, color = DangerRed.copy(alpha = 0.7f))
-                        }
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = DangerRed, modifier = Modifier.size(14.dp))
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
+            // 볼륨 제어 버튼 (항상 상단에)
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 if (!status.isAccessAllowed) {
                     Text("상대방이 접근을 차단했습니다", fontSize = 11.sp, color = DangerRed, modifier = Modifier.padding(bottom = 6.dp))
                 }
-
-                // 볼륨 버튼
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     VolumeLevel.entries.forEach { level ->
                         val isSelected = status.volumeLevel == level
@@ -597,7 +670,7 @@ private fun PartnerCard(
 
                 // 복원 예정 배너
                 restoreInfo?.let { info ->
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                             .background(AccentBlue.copy(alpha = 0.1f)).padding(horizontal = 10.dp, vertical = 6.dp),
@@ -606,6 +679,44 @@ private fun PartnerCard(
                         Text("⏱", fontSize = 12.sp)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(info, fontSize = 11.sp, color = AccentBlue)
+                    }
+                }
+
+                // 권한 경고 (볼륨 버튼 아래)
+                if (!canWriteSettings || !canSetMute) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    if (!canWriteSettings) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                .background(AccentBlue.copy(alpha = 0.1f)).clickable(onClick = onGrantPermission)
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("⚙️", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("시스템 설정 변경 권한 필요", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = AccentBlue)
+                                Text("탭하여 허용", fontSize = 10.sp, color = AccentBlue.copy(alpha = 0.7f))
+                            }
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(14.dp))
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    if (!canSetMute) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                .background(DangerRed.copy(alpha = 0.08f)).clickable(onClick = onGrantDndPermission)
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🔕", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("무음 모드 권한 필요", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = DangerRed)
+                                Text("탭하여 방해금지 접근 허용", fontSize = 10.sp, color = DangerRed.copy(alpha = 0.7f))
+                            }
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = DangerRed, modifier = Modifier.size(14.dp))
+                        }
                     }
                 }
             }

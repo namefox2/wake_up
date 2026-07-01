@@ -123,72 +123,6 @@ fun SettingsScreen(viewModel: MainViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // 권한 설정
-        SettingSection(title = "권한 설정") {
-            SettingItem(
-                icon = Icons.Default.VolumeUp,
-                title = "시스템 설정 변경 권한",
-                subtitle = if (canWriteSettings) "허용됨" else "볼륨 제어에 필요 — 탭하여 허용",
-                iconTint = if (canWriteSettings) SuccessGreen else AccentBlue,
-                granted = canWriteSettings,
-                onClick = {
-                    val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                        data = android.net.Uri.parse("package:${context.packageName}")
-                    }
-                    context.startActivity(intent)
-                }
-            )
-            HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
-            SettingItem(
-                icon = Icons.Default.NotificationsOff,
-                title = "방해금지 접근 허용",
-                subtitle = if (canSetMute) "허용됨" else "무음 모드 전환에 필요 — 탭하여 허용",
-                iconTint = if (canSetMute) SuccessGreen else DangerRed,
-                granted = canSetMute,
-                onClick = {
-                    context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
-                }
-            )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
-                SettingItem(
-                    icon = Icons.Default.Alarm,
-                    title = "정확한 알람 권한",
-                    subtitle = if (canExactAlarm) "허용됨" else "알람이 정시에 울리도록 — 탭하여 허용",
-                    iconTint = if (canExactAlarm) SuccessGreen else AccentBlue,
-                    granted = canExactAlarm,
-                    onClick = {
-                        context.startActivity(
-                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                                data = android.net.Uri.parse("package:${context.packageName}")
-                            }
-                        )
-                    }
-                )
-            }
-            HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
-            SettingItem(
-                icon = Icons.Default.BatteryFull,
-                title = "배터리 최적화 제외",
-                subtitle = if (batteryIgnored) "허용됨" else "백그라운드에서 꺼지지 않도록 — 탭하여 허용",
-                iconTint = if (batteryIgnored) SuccessGreen else AccentBlue,
-                granted = batteryIgnored,
-                onClick = {
-                    if (!batteryIgnored) {
-                        context.startActivity(
-                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                data = android.net.Uri.parse("package:${context.packageName}")
-                            }
-                        )
-                    } else {
-                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                    }
-                }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         // 테마 선택
         SettingSection(title = "앱 테마") {
             SettingItem(
@@ -295,6 +229,72 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     }
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 권한 설정
+        SettingSection(title = "권한 설정") {
+            SettingItem(
+                icon = Icons.Default.VolumeUp,
+                title = "시스템 설정 변경 권한",
+                subtitle = if (canWriteSettings) "허용됨" else "볼륨 제어에 필요 — 탭하여 허용",
+                iconTint = if (canWriteSettings) SuccessGreen else AccentBlue,
+                granted = canWriteSettings,
+                onClick = {
+                    val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                        data = android.net.Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                }
+            )
+            HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+            SettingItem(
+                icon = Icons.Default.NotificationsOff,
+                title = "방해금지 접근 허용",
+                subtitle = if (canSetMute) "허용됨" else "무음 모드 전환에 필요 — 탭하여 허용",
+                iconTint = if (canSetMute) SuccessGreen else DangerRed,
+                granted = canSetMute,
+                onClick = {
+                    context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
+                }
+            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+                SettingItem(
+                    icon = Icons.Default.Alarm,
+                    title = "정확한 알람 권한",
+                    subtitle = if (canExactAlarm) "허용됨" else "알람이 정시에 울리도록 — 탭하여 허용",
+                    iconTint = if (canExactAlarm) SuccessGreen else AccentBlue,
+                    granted = canExactAlarm,
+                    onClick = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                data = android.net.Uri.parse("package:${context.packageName}")
+                            }
+                        )
+                    }
+                )
+            }
+            HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+            SettingItem(
+                icon = Icons.Default.BatteryFull,
+                title = "배터리 최적화 제외",
+                subtitle = if (batteryIgnored) "허용됨" else "백그라운드에서 꺼지지 않도록 — 탭하여 허용",
+                iconTint = if (batteryIgnored) SuccessGreen else AccentBlue,
+                granted = batteryIgnored,
+                onClick = {
+                    if (!batteryIgnored) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = android.net.Uri.parse("package:${context.packageName}")
+                            }
+                        )
+                    } else {
+                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    }
+                }
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

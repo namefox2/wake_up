@@ -57,6 +57,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _googleSignInRequest = MutableSharedFlow<Intent>(extraBufferCapacity = 1)
     val googleSignInRequest: SharedFlow<Intent> = _googleSignInRequest
 
+    // 새 컨트롤러 등록 시 권한 안내 이벤트
+    private val _showPermissionGuide = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val showPermissionGuide: SharedFlow<Unit> = _showPermissionGuide
+
     private var restoreInfoJob: Job? = null
     private var pendingSlotPurchaseActivity: Activity? = null
     private val partnerListenerJobs = mutableMapOf<String, List<Job>>()
@@ -70,6 +74,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val KEY_THEME        = stringPreferencesKey("theme")
         val KEY_DND_CONFIG   = stringPreferencesKey("dnd_config")
         val KEY_MY_ACTIVITY  = stringPreferencesKey("my_activity")
+        val KEY_DEVICE_NAMES = stringPreferencesKey("device_names")
     }
 
     init {
@@ -103,6 +108,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         val isAdmin = runCatching { repository.isAdmin(myUid) }.getOrDefault(false)
         val purchasedSlots = if (isAdmin) 4 else runCatching { repository.getPurchasedSlots(myUid) }.getOrDefault(0)
+        val deviceNames = runCatching {
+            val mapType = object : com.google.gson.reflect.TypeToken<Map<String, String>>() {}.type
+            gson.fromJson<Map<String, String>>(prefs[KEY_DEVICE_NAMES] ?: "{}", mapType) ?: emptyMap()
+        }.getOrDefault(emptyMap())
 
         _uiState.value = _uiState.value.copy(
             myCode     = myCode,
@@ -113,7 +122,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             myStatus   = DeviceStatus(isMuted = audioManager.isMuted(), isOnline = true),
             myActivity = myActivity,
             purchasedSlots = purchasedSlots,
-            googleEmail = repository.getGoogleEmail()
+            googleEmail = repository.getGoogleEmail(),
+            deviceNames = deviceNames
         )
 
         // 온보딩된 기기는 파트너 유무와 관계없이 항상 서비스 실행
@@ -223,6 +233,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun listenToControllers(myUid: String) {
+        var prevUids = emptySet<String>()
         viewModelScope.launch {
             repository.observeControllers(myUid).collect { uids ->
                 val controllers = uids.map { uid ->
@@ -230,6 +241,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ControllerState(uid = uid, inviteCode = code)
                 }
                 _uiState.value = _uiState.value.copy(controllers = controllers)
+                val newOnes = uids.toSet() - prevUids
+                if (prevUids.isNotEmpty() && newOnes.isNotEmpty()) {
+                    _showPermissionGuide.emit(Unit)
+                }
+                prevUids = uids.toSet()
             }
         }
     }
@@ -281,6 +297,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(myCode = newCode, isRefreshingCode = false)
             }.onFailure {
                 _uiState.value = _uiState.value.copy(isRefreshingCode = false)
+            }
+        }
+    }
+
+    fun setDeviceName(uid: String, name: String) {
+        viewModelScope.launch {
+            val current = _uiState.value.deviceNames.toMutableMap()
+            if (name.isBlank()) current.remove(uid) else current[uid] = name.trim()
+            _uiState.value = _uiState.value.copy(deviceNames = current)
+            getApplication<Application>().dataStore.edit { prefs ->
+                prefs[KEY_DEVICE_NAMES] = gson.toJson(current)
             }
         }
     }
@@ -497,7 +524,8 @@ data class SilentLinkUiState(
     val purchasedSlots: Int = 0,
     val googleEmail: String? = null,
     val selectedAlarmPartnerUid: String = "",
-    val isRefreshingCode: Boolean = false
+    val isRefreshingCode: Boolean = false,
+    val deviceNames: Map<String, String> = emptyMap()
 ) {
     val isConnected: Boolean get() = partners.isNotEmpty()
     val maxDevices: Int get() = 1 + purchasedSlots
