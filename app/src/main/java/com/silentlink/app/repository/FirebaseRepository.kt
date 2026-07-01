@@ -86,16 +86,47 @@ class FirebaseRepository {
         if (db.getReference("devices/$myUid/partnerIds/$partnerUid").get().await().exists())
             return ConnectResult.ALREADY_CONNECTED
         db.getReference("devices/$myUid/partnerIds/$partnerUid").setValue(true).await()
+        // 상대방 기기에 "나를 등록한 기기" 기록
+        db.getReference("devices/$partnerUid/registeredBy/$myUid").setValue(true).await()
         return ConnectResult.SUCCESS
     }
 
     suspend fun disconnectFromPartner(myUid: String, partnerUid: String) {
         db.getReference("devices/$myUid/partnerIds/$partnerUid").removeValue().await()
+        db.getReference("devices/$partnerUid/registeredBy/$myUid").removeValue().await()
+    }
+
+    // 나를 등록한 기기(컨트롤러)를 차단
+    suspend fun removeController(myUid: String, controllerUid: String) {
+        db.getReference("devices/$myUid/registeredBy/$controllerUid").removeValue().await()
+        db.getReference("devices/$controllerUid/partnerIds/$myUid").removeValue().await()
     }
 
     suspend fun disconnectAll(myUid: String) {
+        val partnerUids = getPartnerUids(myUid)
+        partnerUids.forEach { partnerUid ->
+            runCatching { db.getReference("devices/$partnerUid/registeredBy/$myUid").removeValue().await() }
+        }
         db.getReference("devices/$myUid/partnerIds").removeValue().await()
     }
+
+    fun observeControllers(myUid: String): Flow<List<String>> = callbackFlow {
+        val ref = db.getReference("devices/$myUid/registeredBy")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(snapshot.children.mapNotNull { it.key }.filter { it.isNotEmpty() })
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    suspend fun getInviteCode(uid: String): String =
+        runCatching {
+            db.getReference("devices/$uid/inviteCode").get().await()
+                .getValue(String::class.java) ?: uid.takeLast(6).uppercase()
+        }.getOrElse { uid.takeLast(6).uppercase() }
 
     // 슬롯 구매 기록
 

@@ -16,6 +16,7 @@ import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.manager.DndManager
 import com.silentlink.app.manager.GoogleSignInManager
 import com.silentlink.app.model.AppTheme
+import com.silentlink.app.model.ControllerState
 import com.silentlink.app.model.DeviceStatus
 import com.silentlink.app.model.DndConfig
 import com.silentlink.app.model.PartnerState
@@ -124,6 +125,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             partnerUids.forEach { listenToPartner(it) }
         }
         listenToMyAlarms(myUid)
+        listenToControllers(myUid)
 
         // 구버전 DataStore 마이그레이션
         if (prefs[KEY_PARTNER_UID] != null && prefs[KEY_PARTNER_UIDS] == null) {
@@ -224,6 +226,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.observeAlarms(myUid).collect { alarms ->
                 _uiState.value = _uiState.value.copy(alarmsFromPartners = alarms)
             }
+        }
+    }
+
+    private fun listenToControllers(myUid: String) {
+        viewModelScope.launch {
+            repository.observeControllers(myUid).collect { uids ->
+                val controllers = uids.map { uid ->
+                    val code = runCatching { repository.getInviteCode(uid) }.getOrElse { uid.takeLast(6).uppercase() }
+                    ControllerState(uid = uid, inviteCode = code)
+                }
+                _uiState.value = _uiState.value.copy(controllers = controllers)
+            }
+        }
+    }
+
+    fun removeController(controllerUid: String) {
+        viewModelScope.launch {
+            val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+            runCatching { repository.removeController(myUid, controllerUid) }
         }
     }
 
@@ -430,6 +451,7 @@ data class SilentLinkUiState(
     val myUid: String = "",
     val myCode: String = "",
     val partners: List<PartnerState> = emptyList(),
+    val controllers: List<ControllerState> = emptyList(),
     val myStatus: DeviceStatus = DeviceStatus(),
     val myActivity: UserActivity = UserActivity.NONE,
     val dndConfig: DndConfig = DndConfig(),

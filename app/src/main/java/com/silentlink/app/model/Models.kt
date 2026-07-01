@@ -6,6 +6,11 @@ data class PartnerState(
     val alarmsForThem: List<RemoteAlarm> = emptyList()
 )
 
+data class ControllerState(
+    val uid: String = "",
+    val inviteCode: String = ""
+)
+
 data class DeviceStatus(
     val isMuted: Boolean = false,
     val volumeLevel: VolumeLevel = VolumeLevel.SOUND,

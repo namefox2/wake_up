@@ -201,12 +201,14 @@ fun HomeScreen(viewModel: MainViewModel) {
                 else -> {
                     PartnerListTab(
                         partners = uiState.partners,
+                        controllers = uiState.controllers,
                         maxDevices = uiState.maxDevices,
                         canWriteSettings = canWriteSettings,
                         canSetMute = canSetMute,
                         volumeRestoreInfo = uiState.volumeRestoreInfo,
                         onVolumeSelect = { uid, level -> viewModel.sendVolumeCommandTo(uid, level) },
                         onDisconnect = { uid -> viewModel.disconnectFromPartner(uid) },
+                        onRemoveController = { uid -> viewModel.removeController(uid) },
                         onConnect = { code -> viewModel.connectWithPartnerCode(code) },
                         onGrantPermission = {
                             context.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
@@ -232,12 +234,14 @@ fun HomeScreen(viewModel: MainViewModel) {
 @Composable
 private fun PartnerListTab(
     partners: List<PartnerState>,
+    controllers: List<com.silentlink.app.model.ControllerState>,
     maxDevices: Int,
     canWriteSettings: Boolean,
     canSetMute: Boolean,
     volumeRestoreInfo: String?,
     onVolumeSelect: (String, VolumeLevel) -> Unit,
     onDisconnect: (String) -> Unit,
+    onRemoveController: (String) -> Unit,
     onConnect: (String) -> Unit,
     onGrantPermission: () -> Unit,
     onGrantDndPermission: () -> Unit,
@@ -361,6 +365,53 @@ private fun PartnerListTab(
                 onGrantPermission = onGrantPermission,
                 onGrantDndPermission = onGrantDndPermission
             )
+        }
+    }
+
+    // 나를 등록한 기기 섹션
+    if (controllers.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(20.dp))
+        val colors = MaterialTheme.colorScheme
+        Text(
+            "나를 제어하는 기기",
+            fontSize = 13.sp, color = colors.onSurface.copy(alpha = 0.6f)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        controllers.forEach { controller ->
+            var showBlockDialog by remember { mutableStateOf(false) }
+            if (showBlockDialog) {
+                AlertDialog(
+                    onDismissRequest = { showBlockDialog = false },
+                    title = { Text("제어 차단") },
+                    text = { Text("코드 ${controller.inviteCode} 기기가 더 이상 내 기기를 제어할 수 없게 됩니다.") },
+                    confirmButton = {
+                        TextButton(onClick = { onRemoveController(controller.uid); showBlockDialog = false },
+                            colors = ButtonDefaults.textButtonColors(contentColor = DangerRed)
+                        ) { Text("차단") }
+                    },
+                    dismissButton = { TextButton(onClick = { showBlockDialog = false }) { Text("취소") } }
+                )
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("코드 ${controller.inviteCode}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colors.onSurface)
+                        Text("이 기기가 나를 제어할 수 있습니다", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.5f))
+                    }
+                    TextButton(
+                        onClick = { showBlockDialog = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = DangerRed)
+                    ) { Text("차단", fontSize = 13.sp) }
+                }
+            }
         }
     }
 }
