@@ -53,6 +53,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- 서비스 감시 (OS kill 후 재시작) -->
+        <receiver
+            android:name=".service.ServiceWatchdogReceiver"
+            android:exported="false" />
+
         <!-- 알람 수신 -->
         <receiver
             android:name=".service.AlarmReceiver"

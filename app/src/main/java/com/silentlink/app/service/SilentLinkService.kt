@@ -79,6 +79,7 @@ class SilentLinkService : Service() {
         syncActualMuteState()
         registerRingerModeReceiver()
         checkPendingRestore()
+        ServiceWatchdogReceiver.schedule(this)
     }
 
     // START_STICKY: OS가 서비스를 종료해도 자동으로 재시작
