@@ -127,7 +127,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("SilentLink", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colors.onBackground)
+                Text("깨워줘", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = colors.onBackground)
                 if (uiState.isConnected) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SuccessGreen))

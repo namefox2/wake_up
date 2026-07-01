@@ -58,7 +58,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            "SilentLink",
+            "깨워줘",
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
             color = colors.onBackground

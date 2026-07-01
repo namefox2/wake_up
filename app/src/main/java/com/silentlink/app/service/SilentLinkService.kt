@@ -227,7 +227,7 @@ class SilentLinkService : Service() {
             this, 0, intent, PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("SilentLink")
+            .setContentTitle("깨워줘")
             .setContentText("연결 중...")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
