@@ -106,6 +106,8 @@ class SilentLinkService : Service() {
     private fun startListeningCommands() {
         scope.launch {
             val myUid = awaitUserId() ?: return@launch
+            // 인증 완료 직후 현재 볼륨 상태를 Firebase에 확실하게 동기화
+            runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
             var backoffMs = 5_000L
             while (isActive) {
                 val failed = runCatching {
