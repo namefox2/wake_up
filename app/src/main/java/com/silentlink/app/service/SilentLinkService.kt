@@ -40,9 +40,15 @@ class SilentLinkService : Service() {
     private var restoreJob: Job? = null
     @Volatile private var restoreLevel: VolumeLevel? = null
 
+    private val servicePrefs by lazy {
+        getSharedPreferences("silentlink_restore", Context.MODE_PRIVATE)
+    }
+
     companion object {
         const val CHANNEL_ID = "silentlink_service"
         const val NOTIFICATION_ID = 1001
+        private const val KEY_RESTORE_LEVEL = "restore_level"
+        private const val KEY_RESTORE_AT_MS = "restore_at_ms"
 
         fun start(context: Context) {
             val intent = Intent(context, SilentLinkService::class.java)
@@ -69,6 +75,7 @@ class SilentLinkService : Service() {
         startListeningControllers()
         syncActualMuteState()
         registerRingerModeReceiver()
+        checkPendingRestore()
     }
 
     // START_STICKY: OS가 서비스를 종료해도 자동으로 재시작
@@ -119,24 +126,17 @@ class SilentLinkService : Service() {
                                 VolumeLevel.valueOf(levelName)
                             }.getOrNull() ?: return@let
 
-                            if (level == VolumeLevel.MUTE && !audioManager.canSetMute()) {
-                                showDndPermissionNotification()
-                            }
-
                             val original = restoreLevel ?: audioManager.getCurrentVolumeLevel()
                             val ok = audioManager.setVolumeLevel(level)
                             if (ok) {
-                                restoreLevel = original
-                                restoreJob?.cancel()
-                                restoreJob = scope.launch {
-                                    delay(10 * 60 * 1000L)
-                                    val target = restoreLevel ?: return@launch
-                                    restoreLevel = null
-                                    audioManager.setVolumeLevel(target)
-                                    runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
+                                val actualLevel = audioManager.getCurrentVolumeLevel()
+                                // 무음 요청인데 실제로는 진동이 된 경우 = DND 권한 없음
+                                if (level == VolumeLevel.MUTE && actualLevel != VolumeLevel.MUTE) {
+                                    showDndPermissionNotification()
                                 }
+                                scheduleRestore(myUid, original)
                                 showVolumeChangedNotification()
-                                runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
+                                runCatching { repository.updateVolumeStatus(myUid, actualLevel) }
                                 runCatching { repository.deleteCommand(myUid, "setVolume") }
                             }
                         }
@@ -174,6 +174,46 @@ class SilentLinkService : Service() {
                 }
             }
         }
+    }
+
+    private fun scheduleRestore(myUid: String, original: VolumeLevel) {
+        val restoreAtMs = System.currentTimeMillis() + 10 * 60 * 1000L
+        restoreLevel = original
+        servicePrefs.edit()
+            .putString(KEY_RESTORE_LEVEL, original.name)
+            .putLong(KEY_RESTORE_AT_MS, restoreAtMs)
+            .apply()
+        restoreJob?.cancel()
+        restoreJob = scope.launch {
+            val delayMs = restoreAtMs - System.currentTimeMillis()
+            if (delayMs > 0) delay(delayMs)
+            doRestore(myUid)
+        }
+    }
+
+    private fun checkPendingRestore() {
+        val levelName = servicePrefs.getString(KEY_RESTORE_LEVEL, null) ?: return
+        val restoreAtMs = servicePrefs.getLong(KEY_RESTORE_AT_MS, 0L)
+        val level = runCatching { VolumeLevel.valueOf(levelName) }.getOrNull() ?: run {
+            servicePrefs.edit().remove(KEY_RESTORE_LEVEL).remove(KEY_RESTORE_AT_MS).apply()
+            return
+        }
+        restoreLevel = level
+        restoreJob?.cancel()
+        restoreJob = scope.launch {
+            val myUid = repository.getCurrentUserId() ?: awaitUserId() ?: return@launch
+            val delayMs = restoreAtMs - System.currentTimeMillis()
+            if (delayMs > 0) delay(delayMs)
+            doRestore(myUid)
+        }
+    }
+
+    private suspend fun doRestore(myUid: String) {
+        val target = restoreLevel ?: return
+        restoreLevel = null
+        servicePrefs.edit().remove(KEY_RESTORE_LEVEL).remove(KEY_RESTORE_AT_MS).apply()
+        audioManager.setVolumeLevel(target)
+        runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
     }
 
     private fun startListeningControllers() {

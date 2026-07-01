@@ -32,32 +32,24 @@ class AudioControlManager(private val context: Context) {
         }
     }
 
-    fun setMute(muted: Boolean): Boolean {
-        return try {
-            if (muted) {
-                if (canSetMute()) {
-                    audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
-                } else {
-                    audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
-                }
-            } else {
-                audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
-            }
-            true
-        } catch (_: Exception) { false }
-    }
-
     fun setVolumeLevel(level: VolumeLevel): Boolean {
         return try {
             when (level) {
-                VolumeLevel.MUTE    -> setMute(true)
+                VolumeLevel.MUTE -> {
+                    try {
+                        audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
+                    } catch (_: SecurityException) {
+                        // DND 권한 없음 — 진동으로 폴백
+                        audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+                    }
+                    true
+                }
                 VolumeLevel.VIBRATE -> {
                     audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
                     true
                 }
-                VolumeLevel.SOUND   -> {
+                VolumeLevel.SOUND -> {
                     audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
-                    // setStreamVolume은 WRITE_SETTINGS 필요 — 있을 때만 볼륨 조정
                     if (canWriteSettings()) {
                         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
                         val target = (max * level.value) / 100
