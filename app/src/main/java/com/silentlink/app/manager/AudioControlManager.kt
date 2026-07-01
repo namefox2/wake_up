@@ -45,10 +45,12 @@ class AudioControlManager(private val context: Context) {
                     true
                 }
                 VolumeLevel.VIBRATE -> {
+                    exitDndIfActive()
                     audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
                     true
                 }
                 VolumeLevel.SOUND -> {
+                    exitDndIfActive()
                     audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
                     if (canWriteSettings()) {
                         val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
@@ -59,5 +61,15 @@ class AudioControlManager(private val context: Context) {
                 }
             }
         } catch (_: Exception) { false }
+    }
+
+    // SILENT(DND) 상태에서 진동/소리로 전환 시 먼저 DND를 해제해야 SecurityException이 발생하지 않음
+    private fun exitDndIfActive() {
+        if (audioManager.ringerMode == AudioManager.RINGER_MODE_SILENT) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (nm.isNotificationPolicyAccessGranted) {
+                nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
+            }
+        }
     }
 }
