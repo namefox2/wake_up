@@ -66,6 +66,7 @@ class SilentLinkService : Service() {
         }
         startListeningCommands()
         startListeningAlarms()
+        startListeningControllers()
         syncActualMuteState()
         registerRingerModeReceiver()
     }
@@ -173,6 +174,49 @@ class SilentLinkService : Service() {
                 }
             }
         }
+    }
+
+    private fun startListeningControllers() {
+        scope.launch {
+            val myUid = awaitUserId() ?: return@launch
+            var initialized = false
+            var prevControllers = emptySet<String>()
+            repository.observeControllers(myUid).collect { uids ->
+                val current = uids.toSet()
+                if (initialized) {
+                    val newOnes = current - prevControllers
+                    if (newOnes.isNotEmpty() && (!audioManager.canSetMute() || !audioManager.canWriteSettings())) {
+                        showPermissionGuideNotification()
+                    }
+                }
+                initialized = true
+                prevControllers = current
+            }
+        }
+    }
+
+    private fun showPermissionGuideNotification() {
+        val nm = getSystemService(NotificationManager::class.java)
+        val channelId = "silentlink_alerts"
+        nm.createNotificationChannel(
+            NotificationChannel(channelId, "깨워줘 알림", NotificationManager.IMPORTANCE_HIGH)
+        )
+        val openIntent = PendingIntent.getActivity(
+            this, 9003,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("새 기기가 나를 등록했습니다")
+            .setContentText("볼륨 제어를 받으려면 권한 설정이 필요합니다. 탭하여 설정하세요.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(openIntent)
+            .setAutoCancel(true)
+            .build()
+        nm.notify(9003, notification)
     }
 
     private fun showVolumeChangedNotification() {

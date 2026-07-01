@@ -1,6 +1,7 @@
 package com.silentlink.app.ui.screen
 
 import android.app.Activity
+import android.app.AlarmManager
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
@@ -25,12 +26,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.silentlink.app.billing.SUPPORT_TIERS
+import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.model.AppTheme
 import com.silentlink.app.ui.MainViewModel
 import com.silentlink.app.ui.theme.AccentBlue
@@ -46,6 +51,31 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
     val billingManager = viewModel.billingManager
     val clipboard = LocalClipboardManager.current
+    val audioControlManager = remember { AudioControlManager(context) }
+    val pm = remember { context.getSystemService(PowerManager::class.java) }
+    val alarmManager = remember { context.getSystemService(AlarmManager::class.java) }
+
+    fun checkPerms() = Triple(
+        audioControlManager.canWriteSettings(),
+        audioControlManager.canSetMute(),
+        pm.isIgnoringBatteryOptimizations(context.packageName)
+    )
+    var perms by remember { mutableStateOf(checkPerms()) }
+    val canWriteSettings = perms.first
+    val canSetMute = perms.second
+    val batteryIgnored = perms.third
+    val canExactAlarm = remember(Build.VERSION.SDK_INT) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) alarmManager.canScheduleExactAlarms() else true
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) perms = checkPerms()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Google Sign-In launcher
     val googleSignInLauncher = rememberLauncherForActivityResult(
@@ -98,8 +128,9 @@ fun SettingsScreen(viewModel: MainViewModel) {
             SettingItem(
                 icon = Icons.Default.VolumeUp,
                 title = "시스템 설정 변경 권한",
-                subtitle = "볼륨 제어에 필요 — 탭하여 허용",
-                iconTint = AccentBlue,
+                subtitle = if (canWriteSettings) "허용됨" else "볼륨 제어에 필요 — 탭하여 허용",
+                iconTint = if (canWriteSettings) SuccessGreen else AccentBlue,
+                granted = canWriteSettings,
                 onClick = {
                     val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                         data = android.net.Uri.parse("package:${context.packageName}")
@@ -111,8 +142,9 @@ fun SettingsScreen(viewModel: MainViewModel) {
             SettingItem(
                 icon = Icons.Default.NotificationsOff,
                 title = "방해금지 접근 허용",
-                subtitle = "무음 모드 전환에 필요 — 탭하여 허용",
-                iconTint = DangerRed,
+                subtitle = if (canSetMute) "허용됨" else "무음 모드 전환에 필요 — 탭하여 허용",
+                iconTint = if (canSetMute) SuccessGreen else DangerRed,
+                granted = canSetMute,
                 onClick = {
                     context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
                 }
@@ -122,8 +154,9 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 SettingItem(
                     icon = Icons.Default.Alarm,
                     title = "정확한 알람 권한",
-                    subtitle = "알람이 정시에 울리도록 — 탭하여 허용",
-                    iconTint = AccentBlue,
+                    subtitle = if (canExactAlarm) "허용됨" else "알람이 정시에 울리도록 — 탭하여 허용",
+                    iconTint = if (canExactAlarm) SuccessGreen else AccentBlue,
+                    granted = canExactAlarm,
                     onClick = {
                         context.startActivity(
                             Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
@@ -137,11 +170,11 @@ fun SettingsScreen(viewModel: MainViewModel) {
             SettingItem(
                 icon = Icons.Default.BatteryFull,
                 title = "배터리 최적화 제외",
-                subtitle = "백그라운드에서 꺼지지 않도록 — 탭하여 허용",
-                iconTint = AccentBlue,
+                subtitle = if (batteryIgnored) "허용됨" else "백그라운드에서 꺼지지 않도록 — 탭하여 허용",
+                iconTint = if (batteryIgnored) SuccessGreen else AccentBlue,
+                granted = batteryIgnored,
                 onClick = {
-                    val pm = context.getSystemService(PowerManager::class.java)
-                    if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
+                    if (!batteryIgnored) {
                         context.startActivity(
                             Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                                 data = android.net.Uri.parse("package:${context.packageName}")
@@ -409,6 +442,7 @@ private fun SettingItem(
     subtitle: String? = null,
     iconTint: Color = AccentBlue,
     titleColor: Color = MaterialTheme.colorScheme.onBackground,
+    granted: Boolean? = null,
     onClick: (() -> Unit)? = null
 ) {
     val colors = MaterialTheme.colorScheme
@@ -440,12 +474,19 @@ private fun SettingItem(
                 Text(
                     text = it,
                     fontSize = 12.sp,
-                    color = colors.onSurface.copy(alpha = 0.55f),
+                    color = if (granted == true) SuccessGreen else colors.onSurface.copy(alpha = 0.55f),
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
-        if (onClick != null) {
+        if (granted == true) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = SuccessGreen,
+                modifier = Modifier.size(18.dp)
+            )
+        } else if (onClick != null) {
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
