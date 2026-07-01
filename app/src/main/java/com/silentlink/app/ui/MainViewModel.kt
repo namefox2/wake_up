@@ -268,6 +268,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun refreshMyCode() {
+        viewModelScope.launch {
+            val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+            val oldCode = _uiState.value.myCode.ifEmpty { return@launch }
+            _uiState.value = _uiState.value.copy(isRefreshingCode = true)
+            runCatching {
+                val newCode = repository.refreshInviteCode(myUid, oldCode)
+                getApplication<Application>().dataStore.edit { prefs ->
+                    prefs[KEY_MY_CODE] = newCode
+                }
+                _uiState.value = _uiState.value.copy(myCode = newCode, isRefreshingCode = false)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(isRefreshingCode = false)
+            }
+        }
+    }
+
     fun refreshPartnerStatus() {
         viewModelScope.launch {
             _uiState.value.partners.forEach { partner ->
@@ -479,7 +496,8 @@ data class SilentLinkUiState(
     val volumeRestoreInfo: String? = null,
     val purchasedSlots: Int = 0,
     val googleEmail: String? = null,
-    val selectedAlarmPartnerUid: String = ""
+    val selectedAlarmPartnerUid: String = "",
+    val isRefreshingCode: Boolean = false
 ) {
     val isConnected: Boolean get() = partners.isNotEmpty()
     val maxDevices: Int get() = 1 + purchasedSlots

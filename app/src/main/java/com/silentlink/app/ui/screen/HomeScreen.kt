@@ -101,6 +101,25 @@ fun HomeScreen(viewModel: MainViewModel) {
 
             // 내 초대코드
             if (uiState.myCode.isNotEmpty()) {
+                var showRefreshConfirm by remember { mutableStateOf(false) }
+
+                if (showRefreshConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showRefreshConfirm = false },
+                        title = { Text("코드 새로고침") },
+                        text = { Text("기존 코드가 즉시 무효화됩니다.\n이미 연결된 파트너는 영향받지 않습니다.") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showRefreshConfirm = false
+                                viewModel.refreshMyCode()
+                            }) { Text("새로고침") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showRefreshConfirm = false }) { Text("취소") }
+                        }
+                    )
+                }
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -114,14 +133,26 @@ fun HomeScreen(viewModel: MainViewModel) {
                         Column {
                             Text("내 초대 코드", fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.55f))
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = uiState.myCode.chunked(3).joinToString(" - "),
-                                fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace, color = AccentBlue, letterSpacing = 1.sp
-                            )
+                            if (uiState.isRefreshingCode) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text(
+                                    text = uiState.myCode.chunked(3).joinToString(" - "),
+                                    fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace, color = AccentBlue, letterSpacing = 1.sp
+                                )
+                            }
                         }
-                        IconButton(onClick = { clipboard.setText(AnnotatedString(uiState.myCode)) }) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = "복사", tint = colors.onSurface.copy(alpha = 0.5f))
+                        Row {
+                            IconButton(onClick = { clipboard.setText(AnnotatedString(uiState.myCode)) }) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "복사", tint = colors.onSurface.copy(alpha = 0.5f))
+                            }
+                            IconButton(
+                                onClick = { showRefreshConfirm = true },
+                                enabled = !uiState.isRefreshingCode
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = "코드 새로고침", tint = colors.onSurface.copy(alpha = 0.5f))
+                            }
                         }
                     }
                 }

@@ -53,6 +53,14 @@ class FirebaseRepository {
         return (1..6).map { chars[Random.nextInt(chars.length)] }.joinToString("")
     }
 
+    suspend fun refreshInviteCode(uid: String, oldCode: String): String {
+        val newCode = generateInviteCode()
+        db.getReference("codes/$oldCode").removeValue().await()
+        db.getReference("codes/$newCode").setValue(uid).await()
+        db.getReference("devices/$uid/inviteCode").setValue(newCode).await()
+        return newCode
+    }
+
     suspend fun registerDevice(uid: String, inviteCode: String) {
         db.getReference("codes/$inviteCode").setValue(uid).await()
         db.getReference("devices/$uid/inviteCode").setValue(inviteCode).await()
