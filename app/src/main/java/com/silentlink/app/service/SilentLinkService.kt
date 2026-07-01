@@ -87,7 +87,7 @@ class SilentLinkService : Service() {
         if (now - lastSyncMs < 2_000) return
         lastSyncMs = now
         scope.launch {
-            val myUid = repository.getCurrentUserId() ?: return@launch
+            val myUid = repository.getCurrentUserId() ?: awaitUserId() ?: return@launch
             runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
         }
     }

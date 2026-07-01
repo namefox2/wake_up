@@ -86,19 +86,14 @@ class FirebaseRepository {
         if (db.getReference("devices/$myUid/partnerIds/$partnerUid").get().await().exists())
             return ConnectResult.ALREADY_CONNECTED
         db.getReference("devices/$myUid/partnerIds/$partnerUid").setValue(true).await()
-        db.getReference("devices/$partnerUid/partnerIds/$myUid").setValue(true).await()
         return ConnectResult.SUCCESS
     }
 
     suspend fun disconnectFromPartner(myUid: String, partnerUid: String) {
         db.getReference("devices/$myUid/partnerIds/$partnerUid").removeValue().await()
-        db.getReference("devices/$partnerUid/partnerIds/$myUid").removeValue().await()
     }
 
     suspend fun disconnectAll(myUid: String) {
-        getPartnerUids(myUid).forEach { partnerUid ->
-            runCatching { db.getReference("devices/$partnerUid/partnerIds/$myUid").removeValue().await() }
-        }
         db.getReference("devices/$myUid/partnerIds").removeValue().await()
     }
 
