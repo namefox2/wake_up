@@ -61,6 +61,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _showPermissionGuide = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val showPermissionGuide: SharedFlow<Unit> = _showPermissionGuide
 
+    // 알림 탭으로 인한 탭 이동 요청
+    private val _pendingNavRoute = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val pendingNavRoute: SharedFlow<String> = _pendingNavRoute
+
+    fun handleNotificationRoute(route: String) {
+        _pendingNavRoute.tryEmit(route)
+    }
+
     private var restoreInfoJob: Job? = null
     private var pendingSlotPurchaseActivity: Activity? = null
     private val partnerListenerJobs = mutableMapOf<String, List<Job>>()

@@ -140,9 +140,9 @@ fun AlarmScreen(viewModel: MainViewModel) {
                 val selectedPartner = uiState.selectedPartnerForAlarm
                 val selectedUid = selectedPartner?.uid ?: ""
 
-                // 파트너 여럿이면 선택기 표시 (이름 반영)
-                if (uiState.partners.size > 1) {
-                    item {
+                // 기기 선택기 — 항상 표시 (1대면 라벨만, 여럿이면 탭 선택)
+                item {
+                    if (uiState.partners.size > 1) {
                         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                             uiState.partners.forEachIndexed { idx, partner ->
                                 val label = uiState.deviceNames[partner.uid] ?: "기기 ${idx + 1}"
@@ -153,13 +153,26 @@ fun AlarmScreen(viewModel: MainViewModel) {
                                 ) { Text(label, fontSize = 12.sp) }
                             }
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+                    } else {
+                        val partnerName = uiState.deviceNames[uiState.partners.first().uid] ?: "연결된 기기"
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("적용 기기", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(AccentBlue.copy(alpha = 0.12f))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(partnerName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AccentBlue)
+                            }
+                        }
                     }
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
 
                 // 내가 상대방에게 설정한 알람 (선택된 기기 이름 표시)
-                val targetName = uiState.deviceNames[selectedUid]
-                    ?: if (uiState.partners.size > 1) "선택된 기기" else "상대방"
+                val targetName = uiState.deviceNames[selectedUid] ?: "상대방"
                 item { SectionLabel("$targetName 에게 설정한 알람") }
 
                 if (uiState.alarmsForSelectedPartner.isEmpty()) {
@@ -283,7 +296,7 @@ private fun AlarmCard(
                     color = if (alarm.isEnabled) colors.onBackground else colors.onSurface.copy(alpha = 0.35f)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     if (alarm.days.isEmpty()) {
                         DayChip("매일", active = alarm.isEnabled)
                     } else {
@@ -475,7 +488,7 @@ fun AlarmEditDialog(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // 개별 요일
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     DAY_LABELS_ALARM.forEachIndexed { idx, dayLabel ->
                         val dayNum = idx + 1
                         val active = !everyDay && dayNum in selectedDays
