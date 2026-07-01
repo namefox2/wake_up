@@ -120,10 +120,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             googleEmail = repository.getGoogleEmail()
         )
 
-        if (partnerUids.isNotEmpty()) {
-            SilentLinkService.start(context)
-            partnerUids.forEach { listenToPartner(it) }
-        }
+        // 온보딩된 기기는 파트너 유무와 관계없이 항상 서비스 실행
+        // (원격 명령 수신, 볼륨 상태 동기화, 알람 스케줄링 필요)
+        SilentLinkService.start(context)
+        partnerUids.forEach { listenToPartner(it) }
         listenToMyAlarms(myUid)
         listenToControllers(myUid)
 
@@ -150,6 +150,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _uiState.value = _uiState.value.copy(myUid = uid, myCode = code)
                 _isOnboarded.value = true
+                SilentLinkService.start(getApplication())
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "초기화 실패: ${e.message}")
             }
@@ -179,10 +180,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         val wasEmpty = _uiState.value.partners.isEmpty()
                         _uiState.value = _uiState.value.copy(partners = newPartners, errorMessage = null)
-                        if (wasEmpty) {
-                            SilentLinkService.start(getApplication())
-                            _showPermissionGuide.emit(Unit)
-                        }
+                        if (wasEmpty) _showPermissionGuide.emit(Unit)
                         partnerUids.lastOrNull()?.let { listenToPartner(it) }
                     }
                     ConnectResult.NOT_FOUND ->
@@ -342,7 +340,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val newPartners = _uiState.value.partners.filter { it.uid != partnerUid }
             savePartnerUids(newPartners.map { it.uid })
             _uiState.value = _uiState.value.copy(partners = newPartners)
-            if (newPartners.isEmpty()) SilentLinkService.stop(getApplication())
         }
     }
 
@@ -351,7 +348,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         partnerListenerJobs.clear()
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
-            SilentLinkService.stop(getApplication())
             runCatching { repository.disconnectAll(myUid) }
             savePartnerUids(emptyList())
             _uiState.value = _uiState.value.copy(
