@@ -49,7 +49,7 @@ class FirebaseRepository {
     }
 
     fun generateInviteCode(): String {
-        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
         return (1..6).map { chars[Random.nextInt(chars.length)] }.joinToString("")
     }
 

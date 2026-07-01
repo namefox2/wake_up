@@ -67,48 +67,6 @@ fun HomeScreen(viewModel: MainViewModel) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    var showPermDialog by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        viewModel.showPermissionGuide.collect {
-            canWriteSettings = audioManager.canWriteSettings()
-            canSetMute = audioManager.canSetMute()
-            if (!canWriteSettings || !canSetMute) showPermDialog = true
-        }
-    }
-
-    if (showPermDialog) {
-        AlertDialog(
-            onDismissRequest = { showPermDialog = false },
-            title = { Text("볼륨 제어 권한 필요") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("상대방 기기를 제어하려면 아래 권한이 필요합니다.", fontSize = 14.sp)
-                    if (!canWriteSettings) {
-                        OutlinedButton(
-                            onClick = {
-                                context.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                                    data = Uri.parse("package:${context.packageName}")
-                                })
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            border = BorderStroke(1.dp, AccentBlue)
-                        ) { Text("시스템 설정 변경 허용", color = AccentBlue) }
-                    }
-                    if (!canSetMute) {
-                        OutlinedButton(
-                            onClick = {
-                                context.startActivity(Intent("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS"))
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            border = BorderStroke(1.dp, AccentBlue)
-                        ) { Text("방해금지 접근 허용 (무음 설정)", color = AccentBlue) }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showPermDialog = false }) { Text("확인") } }
-        )
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()

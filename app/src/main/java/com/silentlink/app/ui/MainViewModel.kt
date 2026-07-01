@@ -57,10 +57,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _googleSignInRequest = MutableSharedFlow<Intent>(extraBufferCapacity = 1)
     val googleSignInRequest: SharedFlow<Intent> = _googleSignInRequest
 
-    // 첫 연결 후 권한 안내 이벤트
-    private val _showPermissionGuide = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val showPermissionGuide: SharedFlow<Unit> = _showPermissionGuide
-
     private var restoreInfoJob: Job? = null
     private var pendingSlotPurchaseActivity: Activity? = null
     private val partnerListenerJobs = mutableMapOf<String, List<Job>>()
@@ -178,9 +174,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         val newPartners = partnerUids.map { uid ->
                             _uiState.value.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
                         }
-                        val wasEmpty = _uiState.value.partners.isEmpty()
                         _uiState.value = _uiState.value.copy(partners = newPartners, errorMessage = null)
-                        if (wasEmpty) _showPermissionGuide.emit(Unit)
                         partnerUids.lastOrNull()?.let { listenToPartner(it) }
                     }
                     ConnectResult.NOT_FOUND ->
