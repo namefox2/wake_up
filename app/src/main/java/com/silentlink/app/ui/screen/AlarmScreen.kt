@@ -140,24 +140,27 @@ fun AlarmScreen(viewModel: MainViewModel) {
                 val selectedPartner = uiState.selectedPartnerForAlarm
                 val selectedUid = selectedPartner?.uid ?: ""
 
-                // 파트너 여럿이면 선택기 표시
+                // 파트너 여럿이면 선택기 표시 (이름 반영)
                 if (uiState.partners.size > 1) {
                     item {
                         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                             uiState.partners.forEachIndexed { idx, partner ->
+                                val label = uiState.deviceNames[partner.uid] ?: "기기 ${idx + 1}"
                                 SegmentedButton(
                                     selected = partner.uid == selectedUid,
                                     onClick = { viewModel.selectAlarmPartner(partner.uid) },
                                     shape = SegmentedButtonDefaults.itemShape(index = idx, count = uiState.partners.size)
-                                ) { Text("기기 ${idx + 1}", fontSize = 12.sp) }
+                                ) { Text(label, fontSize = 12.sp) }
                             }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
 
-                // 내가 상대방에게 설정한 알람
-                item { SectionLabel("내가 상대방에게 설정한 알람") }
+                // 내가 상대방에게 설정한 알람 (선택된 기기 이름 표시)
+                val targetName = uiState.deviceNames[selectedUid]
+                    ?: if (uiState.partners.size > 1) "선택된 기기" else "상대방"
+                item { SectionLabel("$targetName 에게 설정한 알람") }
 
                 if (uiState.alarmsForSelectedPartner.isEmpty()) {
                     item { EmptyAlarmHint() }

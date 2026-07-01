@@ -232,6 +232,18 @@ class FirebaseRepository {
         db.getReference("devices/$myUid/status/isAccessAllowed").setValue(allowed).await()
     }
 
+    fun observeAccessAllowed(myUid: String): Flow<Boolean> = callbackFlow {
+        val ref = db.getReference("devices/$myUid/status/isAccessAllowed")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(snapshot.getValue(Boolean::class.java) ?: true)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
     suspend fun updateMyActivity(myUid: String, activity: UserActivity) {
         db.getReference("devices/$myUid/status/activity").setValue(activity.name).await()
     }

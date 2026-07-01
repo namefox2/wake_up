@@ -39,6 +39,8 @@ class SilentLinkService : Service() {
     @Volatile private var lastSyncMs = 0L
     private var restoreJob: Job? = null
     @Volatile private var restoreLevel: VolumeLevel? = null
+    @Volatile private var myAccessAllowed = true
+    private var lastKnownAlarms: List<com.silentlink.app.model.RemoteAlarm> = emptyList()
 
     private val servicePrefs by lazy {
         getSharedPreferences("silentlink_restore", Context.MODE_PRIVATE)
@@ -72,6 +74,7 @@ class SilentLinkService : Service() {
         }
         startListeningCommands()
         startListeningAlarms()
+        startListeningMyAccess()
         startListeningControllers()
         syncActualMuteState()
         registerRingerModeReceiver()
@@ -157,21 +160,39 @@ class SilentLinkService : Service() {
             while (isActive) {
                 val failed = runCatching {
                     repository.observeAlarms(myUid).collect { alarms ->
-                        val newIds = alarms.map { it.id }.toSet()
-                        scheduledAlarmIds.forEach { id ->
-                            if (id !in newIds) alarmScheduler.cancel(id)
-                        }
-                        scheduledAlarmIds.clear()
-                        alarms.filter { it.isEnabled }.forEach { alarm ->
-                            alarmScheduler.schedule(alarm)
-                            scheduledAlarmIds.add(alarm.id)
-                        }
+                        lastKnownAlarms = alarms
+                        resyncAlarms()
                     }
                 }.isFailure
                 if (isActive) {
                     delay(if (failed) backoffMs else 2_000L)
                     backoffMs = if (failed) minOf(backoffMs * 2, 60_000L) else 5_000L
                 }
+            }
+        }
+    }
+
+    private fun startListeningMyAccess() {
+        scope.launch {
+            val myUid = awaitUserId() ?: return@launch
+            repository.observeAccessAllowed(myUid).collect { allowed ->
+                if (myAccessAllowed != allowed) {
+                    myAccessAllowed = allowed
+                    resyncAlarms()
+                }
+            }
+        }
+    }
+
+    private fun resyncAlarms() {
+        val alarms = lastKnownAlarms
+        val newIds = alarms.map { it.id }.toSet()
+        scheduledAlarmIds.forEach { id -> if (id !in newIds) alarmScheduler.cancel(id) }
+        scheduledAlarmIds.clear()
+        if (myAccessAllowed) {
+            alarms.filter { it.isEnabled }.forEach { alarm ->
+                alarmScheduler.schedule(alarm)
+                scheduledAlarmIds.add(alarm.id)
             }
         }
     }
