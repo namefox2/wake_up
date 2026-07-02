@@ -13,7 +13,9 @@ import android.media.MediaPlayer
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -27,6 +29,9 @@ class AlarmRingService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
 
+    private val autoDismissHandler = Handler(Looper.getMainLooper())
+    private val autoDismissRunnable = Runnable { stopSelf() }
+
     companion object {
         const val CHANNEL_ID = "silentlink_alarm_ring"
         const val NOTIFICATION_ID = 2001
@@ -35,6 +40,7 @@ class AlarmRingService : Service() {
         const val EXTRA_ALARM_LABEL = "alarm_label"
         const val EXTRA_ALARM_SOUND = "alarm_sound"
         const val EXTRA_ALARM_VIBRATE = "alarm_vibrate"
+        private const val AUTO_DISMISS_MS = 10 * 60 * 1000L // 10분 후 자동 해제
 
         val isRinging = MutableStateFlow(false)
         var ringingLabel = ""
@@ -59,15 +65,15 @@ class AlarmRingService : Service() {
     private var shouldVibrate = true
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_DISMISS) {
+        if (intent?.action == ACTION_DISMISS || intent == null) {
             stopSelf()
             return START_NOT_STICKY
         }
 
-        val alarmId = intent?.getStringExtra(EXTRA_ALARM_ID) ?: ""
-        val label = intent?.getStringExtra(EXTRA_ALARM_LABEL) ?: "SilentLink 알람"
-        shouldSound = intent?.getBooleanExtra(EXTRA_ALARM_SOUND, true) ?: true
-        shouldVibrate = intent?.getBooleanExtra(EXTRA_ALARM_VIBRATE, true) ?: true
+        val alarmId = intent.getStringExtra(EXTRA_ALARM_ID) ?: ""
+        val label = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "SilentLink 알람"
+        shouldSound = intent.getBooleanExtra(EXTRA_ALARM_SOUND, true)
+        shouldVibrate = intent.getBooleanExtra(EXTRA_ALARM_VIBRATE, true)
 
         ringingLabel = label
         isRinging.value = true
@@ -84,7 +90,11 @@ class AlarmRingService : Service() {
         if (shouldSound) startRinging()
         if (shouldVibrate) startVibrating()
 
-        return START_STICKY
+        // 10분 후 자동 해제
+        autoDismissHandler.removeCallbacks(autoDismissRunnable)
+        autoDismissHandler.postDelayed(autoDismissRunnable, AUTO_DISMISS_MS)
+
+        return START_NOT_STICKY
     }
 
     private fun startRinging() {
@@ -184,6 +194,7 @@ class AlarmRingService : Service() {
     }
 
     override fun onDestroy() {
+        autoDismissHandler.removeCallbacks(autoDismissRunnable)
         isRinging.value = false
         ringingLabel = ""
         ringtone?.stop()
