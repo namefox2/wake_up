@@ -40,7 +40,7 @@ class AlarmRingService : Service() {
         const val EXTRA_ALARM_LABEL = "alarm_label"
         const val EXTRA_ALARM_SOUND = "alarm_sound"
         const val EXTRA_ALARM_VIBRATE = "alarm_vibrate"
-        private const val AUTO_DISMISS_MS = 10 * 60 * 1000L // 10분 후 자동 해제
+        private const val AUTO_DISMISS_MS = 60 * 1000L // 1분 후 자동 해제
 
         val isRinging = MutableStateFlow(false)
         var ringingLabel = ""
