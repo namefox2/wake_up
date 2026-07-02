@@ -55,9 +55,10 @@ class FirebaseRepository {
 
     suspend fun refreshInviteCode(uid: String, oldCode: String): String {
         val newCode = generateInviteCode()
-        db.getReference("codes/$oldCode").removeValue().await()
+        // Write new entries first so the device is always reachable
         db.getReference("codes/$newCode").setValue(uid).await()
         db.getReference("devices/$uid/inviteCode").setValue(newCode).await()
+        db.getReference("codes/$oldCode").removeValue().await()
         return newCode
     }
 
@@ -116,6 +117,13 @@ class FirebaseRepository {
             runCatching { db.getReference("devices/$partnerUid/registeredBy/$myUid").removeValue().await() }
         }
         db.getReference("devices/$myUid/partnerIds").removeValue().await()
+        // Also clean up controllers: remove myUid from each controller's partnerIds,
+        // then clear our own registeredBy map
+        val controllerSnap = db.getReference("devices/$myUid/registeredBy").get().await()
+        controllerSnap.children.mapNotNull { it.key }.forEach { controllerUid ->
+            runCatching { db.getReference("devices/$controllerUid/partnerIds/$myUid").removeValue().await() }
+        }
+        db.getReference("devices/$myUid/registeredBy").removeValue().await()
     }
 
     fun observePartnerIds(myUid: String): Flow<List<String>> = callbackFlow {

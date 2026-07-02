@@ -27,6 +27,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class SilentLinkService : Service() {
 
@@ -40,7 +42,8 @@ class SilentLinkService : Service() {
     private var restoreJob: Job? = null
     @Volatile private var restoreLevel: VolumeLevel? = null
     @Volatile private var myAccessAllowed = true
-    private var lastKnownAlarms: List<com.silentlink.app.model.RemoteAlarm> = emptyList()
+    @Volatile private var lastKnownAlarms: List<com.silentlink.app.model.RemoteAlarm> = emptyList()
+    private val alarmMutex = Mutex()
 
     private val servicePrefs by lazy {
         getSharedPreferences("silentlink_restore", Context.MODE_PRIVATE)
@@ -132,8 +135,8 @@ class SilentLinkService : Service() {
 
                             val original = restoreLevel ?: audioManager.getCurrentVolumeLevel()
                             val ok = audioManager.setVolumeLevel(level)
+                            val actualLevel = audioManager.getCurrentVolumeLevel()
                             if (ok) {
-                                val actualLevel = audioManager.getCurrentVolumeLevel()
                                 // 무음 요청인데 실제로는 진동이 된 경우 = DND 권한 없음
                                 if (level == VolumeLevel.MUTE && actualLevel != VolumeLevel.MUTE) {
                                     showDndPermissionNotification()
@@ -141,8 +144,8 @@ class SilentLinkService : Service() {
                                 scheduleRestore(myUid, original)
                                 showVolumeChangedNotification()
                                 runCatching { repository.updateVolumeStatus(myUid, actualLevel) }
-                                runCatching { repository.deleteCommand(myUid, "setVolume") }
                             }
+                            runCatching { repository.deleteCommand(myUid, "setVolume") }
                         }
                     }
                 }.isFailure
@@ -185,7 +188,7 @@ class SilentLinkService : Service() {
         }
     }
 
-    private fun resyncAlarms() {
+    private suspend fun resyncAlarms() = alarmMutex.withLock {
         val alarms = lastKnownAlarms
         val newIds = alarms.map { it.id }.toSet()
         scheduledAlarmIds.forEach { id -> if (id !in newIds) alarmScheduler.cancel(id) }
@@ -260,9 +263,6 @@ class SilentLinkService : Service() {
     private fun showPermissionGuideNotification() {
         val nm = getSystemService(NotificationManager::class.java)
         val channelId = "silentlink_alerts"
-        nm.createNotificationChannel(
-            NotificationChannel(channelId, "깨워줘 알림", NotificationManager.IMPORTANCE_HIGH)
-        )
         val openIntent = PendingIntent.getActivity(
             this, 9003,
             Intent(this, MainActivity::class.java).apply {
@@ -285,9 +285,6 @@ class SilentLinkService : Service() {
     private fun showVolumeChangedNotification() {
         val nm = getSystemService(NotificationManager::class.java)
         val channelId = "silentlink_alerts"
-        nm.createNotificationChannel(
-            NotificationChannel(channelId, "SilentLink 알림", NotificationManager.IMPORTANCE_DEFAULT)
-        )
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_silent_mode)
             .setContentTitle("볼륨 설정 변경됨")
@@ -305,9 +302,6 @@ class SilentLinkService : Service() {
         )
         val nm = getSystemService(NotificationManager::class.java)
         val channelId = "silentlink_alerts"
-        nm.createNotificationChannel(
-            NotificationChannel(channelId, "SilentLink 알림", NotificationManager.IMPORTANCE_HIGH)
-        )
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
             .setContentTitle("🔕 무음 설정 불가")
@@ -320,14 +314,18 @@ class SilentLinkService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "SilentLink 연결 유지",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "상대방과의 연결을 유지합니다"
-        }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, "SilentLink 연결 유지", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "상대방과의 연결을 유지합니다"
+            }
+        )
+        // Alerts channel: created once here with HIGH importance.
+        // Android ignores subsequent createNotificationChannel calls with lower importance,
+        // so this must be the first (and only) registration.
+        nm.createNotificationChannel(
+            NotificationChannel("silentlink_alerts", "깨워줘 알림", NotificationManager.IMPORTANCE_HIGH)
+        )
     }
 
     private fun buildNotification(): Notification {

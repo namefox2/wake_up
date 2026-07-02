@@ -166,6 +166,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(myUid = uid, myCode = code)
                 _isOnboarded.value = true
                 SilentLinkService.start(getApplication())
+                listenToMyAlarms(uid)
+                listenToControllers(uid)
+                listenToMyPartnerIds(uid)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "초기화 실패: ${e.message}")
             }
@@ -241,19 +244,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun listenToControllers(myUid: String) {
+        var initialized = false
         var prevUids = emptySet<String>()
+        val codeCache = mutableMapOf<String, String>()
         viewModelScope.launch {
             repository.observeControllers(myUid).collect { uids ->
+                val current = uids.toSet()
+                val newOnes = current - prevUids
+                // Fetch invite codes only for newly seen UIDs, reuse cache for the rest
+                newOnes.forEach { uid ->
+                    codeCache[uid] = runCatching { repository.getInviteCode(uid) }
+                        .getOrElse { uid.takeLast(6).uppercase() }
+                }
                 val controllers = uids.map { uid ->
-                    val code = runCatching { repository.getInviteCode(uid) }.getOrElse { uid.takeLast(6).uppercase() }
-                    ControllerState(uid = uid, inviteCode = code)
+                    ControllerState(uid = uid, inviteCode = codeCache[uid] ?: uid.takeLast(6).uppercase())
                 }
                 _uiState.value = _uiState.value.copy(controllers = controllers)
-                val newOnes = uids.toSet() - prevUids
-                if (prevUids.isNotEmpty() && newOnes.isNotEmpty()) {
+                if (initialized && newOnes.isNotEmpty()) {
                     _showPermissionGuide.emit(Unit)
                 }
-                prevUids = uids.toSet()
+                initialized = true
+                prevUids = current
             }
         }
     }
