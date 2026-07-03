@@ -309,7 +309,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
             SettingItem(
                 icon = Icons.Default.BatteryFull,
                 title = "배터리 최적화 제외",
-                subtitle = if (batteryIgnored) "허용됨" else "백그라운드에서 꺼지지 않도록 — 탭하여 허용",
+                subtitle = if (batteryIgnored) "제외됨" else "백그라운드에서 꺼지지 않도록 — 탭하여 허용",
                 iconTint = if (batteryIgnored) SuccessGreen else AccentBlue,
                 granted = batteryIgnored,
                 onClick = {

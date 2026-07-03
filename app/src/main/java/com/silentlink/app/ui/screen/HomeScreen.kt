@@ -26,10 +26,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.ui.platform.LocalContext
+import com.silentlink.app.manager.DndManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -43,6 +47,15 @@ import com.silentlink.app.ui.theme.AccentBlue
 import com.silentlink.app.ui.theme.DangerRed
 import com.silentlink.app.ui.theme.SuccessGreen
 
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
 @Composable
 fun HomeScreen(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsState()
@@ -50,6 +63,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val audioManager = remember { AudioControlManager(context) }
+    val dndManager = remember { DndManager(context) }
     var canWriteSettings by remember { mutableStateOf(audioManager.canWriteSettings()) }
     var canSetMute by remember { mutableStateOf(audioManager.canSetMute()) }
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -221,7 +235,10 @@ fun HomeScreen(viewModel: MainViewModel) {
                 0 -> {
                     MyActivityCard(currentActivity = uiState.myActivity, onActivitySelect = { viewModel.setMyActivity(it) })
                     Spacer(modifier = Modifier.height(12.dp))
-                    DndSummaryCard(isEnabled = uiState.dndConfig.isEnabled)
+                    DndSummaryCard(
+                        isEnabled = uiState.dndConfig.isEnabled,
+                        isCurrentlyInDndTime = dndManager.isInDndTime(uiState.dndConfig)
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                     AccessToggleCard(isAllowed = uiState.myStatus.isAccessAllowed, onToggle = { viewModel.toggleMyAccess(it) })
                 }
@@ -239,6 +256,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                         onRemoveController = { uid -> viewModel.removeController(uid) },
                         onSetDeviceName = { uid, name -> viewModel.setDeviceName(uid, name) },
                         onConnect = { code -> viewModel.connectWithPartnerCode(code) },
+                        onAddSlot = { context.findActivity()?.let { viewModel.requestSlotPurchase(it) } },
                         onGrantPermission = {
                             context.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                                 data = Uri.parse("package:${context.packageName}")
@@ -274,6 +292,7 @@ private fun PartnerListTab(
     onRemoveController: (String) -> Unit,
     onSetDeviceName: (String, String) -> Unit,
     onConnect: (String) -> Unit,
+    onAddSlot: () -> Unit,
     onGrantPermission: () -> Unit,
     onGrantDndPermission: () -> Unit,
     errorMessage: String?,
@@ -297,10 +316,11 @@ private fun PartnerListTab(
         )
         TextButton(
             onClick = {
-                if (canAddMore) showConnectInput = !showConnectInput
+                if (canAddMore) showConnectInput = !showConnectInput else onAddSlot()
             },
-            enabled = canAddMore,
-            colors = ButtonDefaults.textButtonColors(contentColor = AccentBlue)
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = if (canAddMore) AccentBlue else DangerRed
+            )
         ) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(4.dp))
@@ -809,12 +829,14 @@ private fun MyActivityCard(currentActivity: UserActivity, onActivitySelect: (Use
 // ── 방해금지 요약 카드 ────────────────────────────────────────────
 
 @Composable
-private fun DndSummaryCard(isEnabled: Boolean) {
+private fun DndSummaryCard(isEnabled: Boolean, isCurrentlyInDndTime: Boolean) {
     val colors = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant)
+        colors = CardDefaults.cardColors(
+            containerColor = if (isCurrentlyInDndTime) DangerRed.copy(alpha = 0.08f) else colors.surfaceVariant
+        )
     ) {
         Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -826,7 +848,11 @@ private fun DndSummaryCard(isEnabled: Boolean) {
             Column {
                 Text("방해금지 스케줄", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onBackground)
                 Text(
-                    if (isEnabled) "활성 중 – 강제 무음 해제 차단됨" else "비활성",
+                    when {
+                        isCurrentlyInDndTime -> "🚫 지금은 방해금지 시간입니다"
+                        isEnabled -> "활성 중 – 강제 무음 해제 차단됨"
+                        else -> "비활성"
+                    },
                     fontSize = 12.sp,
                     color = if (isEnabled) DangerRed else colors.onSurface.copy(alpha = 0.45f)
                 )
