@@ -116,12 +116,13 @@ fun MainNavigation(viewModel: MainViewModel) {
 
     fun hasCriticalPerms() = audioManager.canWriteSettings() && audioManager.canSetMute()
 
-    // 첫 설치 시 권한 안내 (한 번만)
+    // 권한 안내: 미허용 상태가 지속되면 최대 3회까지 설정 화면으로 안내
     LaunchedEffect(Unit) {
-        val prefs = context.getSharedPreferences("silentlink_meta", android.content.Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("perms_prompted", false)) {
-            prefs.edit().putBoolean("perms_prompted", true).apply()
-            if (!hasCriticalPerms()) {
+        if (!hasCriticalPerms()) {
+            val prefs = context.getSharedPreferences("silentlink_meta", android.content.Context.MODE_PRIVATE)
+            val promptCount = prefs.getInt("perms_prompt_count", 0)
+            if (promptCount < 3) {
+                prefs.edit().putInt("perms_prompt_count", promptCount + 1).apply()
                 navController.navigate("settings") {
                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                     launchSingleTop = true

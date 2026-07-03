@@ -532,23 +532,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             when (result) {
-                CouponResult.SUCCESS -> {
-                    val slots = runCatching { repository.getPurchasedSlots(myUid) }
-                        .getOrDefault(_uiState.value.purchasedSlots)
-                    _uiState.value = _uiState.value.copy(
-                        purchasedSlots = slots,
-                        couponMessage = "쿠폰이 적용되었습니다! 슬롯 1개가 추가되었습니다."
-                    )
-                }
-                CouponResult.INVALID -> _uiState.value = _uiState.value.copy(couponMessage = "유효하지 않은 쿠폰 코드입니다")
-                CouponResult.ALREADY_USED -> _uiState.value = _uiState.value.copy(couponMessage = "이미 사용한 쿠폰입니다")
-                CouponResult.MAX_REACHED -> _uiState.value = _uiState.value.copy(couponMessage = "이미 최대 슬롯에 도달했습니다")
+                CouponResult.SUCCESS -> _uiState.value = _uiState.value.copy(
+                    purchasedSlots = _uiState.value.purchasedSlots + 1,
+                    couponMessage = "쿠폰이 적용되었습니다! 슬롯 1개가 추가되었습니다.",
+                    couponSuccess = true
+                )
+                CouponResult.INVALID -> _uiState.value = _uiState.value.copy(couponMessage = "유효하지 않은 쿠폰 코드입니다", couponSuccess = false)
+                CouponResult.ALREADY_USED -> _uiState.value = _uiState.value.copy(couponMessage = "이미 사용한 쿠폰입니다", couponSuccess = false)
+                CouponResult.MAX_REACHED -> _uiState.value = _uiState.value.copy(couponMessage = "이미 최대 슬롯에 도달했습니다", couponSuccess = false)
             }
         }
     }
 
     fun clearCouponMessage() {
-        _uiState.value = _uiState.value.copy(couponMessage = null)
+        _uiState.value = _uiState.value.copy(couponMessage = null, couponSuccess = false)
     }
 
     fun clearError() {
@@ -584,7 +581,8 @@ data class SilentLinkUiState(
     val selectedAlarmPartnerUid: String = "",
     val isRefreshingCode: Boolean = false,
     val deviceNames: Map<String, String> = emptyMap(),
-    val couponMessage: String? = null
+    val couponMessage: String? = null,
+    val couponSuccess: Boolean = false
 ) {
     val isConnected: Boolean get() = partners.isNotEmpty()
     val maxDevices: Int get() = 1 + purchasedSlots

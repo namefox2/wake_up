@@ -38,6 +38,7 @@ class SilentLinkService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var audioManager: AudioControlManager
     private lateinit var alarmScheduler: AlarmScheduler
+    private lateinit var dndManager: DndManager
     private val scheduledAlarmIds = mutableSetOf<String>()
     private var ringerModeReceiver: BroadcastReceiver? = null
     @Volatile private var lastSyncMs = 0L
@@ -71,6 +72,7 @@ class SilentLinkService : Service() {
         super.onCreate()
         audioManager = AudioControlManager(this)
         alarmScheduler = AlarmScheduler(this)
+        dndManager = DndManager(this)
         createNotificationChannel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -137,7 +139,7 @@ class SilentLinkService : Service() {
 
                             // 방해금지 시간 중 수신된 명령은 무시하고 삭제
                             val dndConfig = DndPrefs.load(this@SilentLinkService)
-                            if (DndManager(this@SilentLinkService).isInDndTime(dndConfig)) {
+                            if (dndManager.isInDndTime(dndConfig)) {
                                 runCatching { repository.deleteCommand(myUid, "setVolume") }
                                 return@let
                             }

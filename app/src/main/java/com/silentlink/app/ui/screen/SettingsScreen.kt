@@ -444,6 +444,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     if (showCouponDialog) {
         CouponDialog(
             resultMessage = uiState.couponMessage,
+            isSuccess = uiState.couponSuccess,
             onRedeem = { code -> viewModel.redeemCoupon(code) },
             onDismiss = {
                 viewModel.clearCouponMessage()
@@ -603,12 +604,12 @@ private fun ThemePickerDialog(
 @Composable
 private fun CouponDialog(
     resultMessage: String?,
+    isSuccess: Boolean,
     onRedeem: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     var code by remember { mutableStateOf("") }
-    val isSuccess = resultMessage?.startsWith("쿠폰이 적용") == true
 
     Dialog(onDismissRequest = onDismiss) {
         Card(

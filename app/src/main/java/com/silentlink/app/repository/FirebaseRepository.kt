@@ -324,9 +324,11 @@ class FirebaseRepository {
         val current = db.getReference("users/$myUid/purchasedSlots").get().await()
             .getValue(Int::class.java) ?: 0
         if (current >= 4) return CouponResult.MAX_REACHED
-        usedRef.setValue(true).await()
         val newSlots = minOf(current + freeSlots, 4)
-        db.getReference("users/$myUid/purchasedSlots").setValue(newSlots).await()
+        // Atomic multi-path write: coupon marked used AND slot count updated in one operation
+        db.getReference("users/$myUid").updateChildren(
+            mapOf("usedCoupons/$upper" to true, "purchasedSlots" to newSlots)
+        ).await()
         return CouponResult.SUCCESS
     }
 }
