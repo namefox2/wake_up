@@ -7,7 +7,8 @@ import android.content.Intent
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.silentlink.app.DndPrefs
+import com.silentlink.app.appDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
@@ -36,8 +37,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-
-private val Context.dataStore by preferencesDataStore(name = "silentlink_prefs")
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -99,7 +98,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun loadPersistedState() {
         val context = getApplication<Application>()
-        val prefs = context.dataStore.data.first()
+        val prefs = context.appDataStore.data.first()
         val onboarded = prefs[KEY_ONBOARDED] ?: false
         _isOnboarded.value = onboarded
         if (!onboarded) return
@@ -122,18 +121,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             gson.fromJson<Map<String, String>>(prefs[KEY_DEVICE_NAMES] ?: "{}", mapType) ?: emptyMap()
         }.getOrDefault(emptyMap())
 
+        val resolvedDnd = dndConfig ?: DndConfig()
         _uiState.value = _uiState.value.copy(
             myCode     = myCode,
             myUid      = myUid,
             partners   = partnerUids.map { PartnerState(uid = it) },
             theme      = theme,
-            dndConfig  = dndConfig ?: DndConfig(),
+            dndConfig  = resolvedDnd,
             myStatus   = DeviceStatus(isMuted = audioManager.isMuted(), isOnline = true),
             myActivity = myActivity,
             purchasedSlots = purchasedSlots,
             googleEmail = repository.getGoogleEmail(),
             deviceNames = deviceNames
         )
+        DndPrefs.save(context, resolvedDnd)
 
         // 온보딩된 기기는 파트너 유무와 관계없이 항상 서비스 실행
         // (원격 명령 수신, 볼륨 상태 동기화, 알람 스케줄링 필요)
@@ -145,7 +146,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // 구버전 DataStore 마이그레이션
         if (prefs[KEY_PARTNER_UID] != null && prefs[KEY_PARTNER_UIDS] == null) {
-            context.dataStore.edit { p ->
+            context.appDataStore.edit { p ->
                 p[KEY_PARTNER_UIDS] = partnerUids.joinToString(",")
                 p.remove(KEY_PARTNER_UID)
             }
@@ -159,7 +160,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val uid  = repository.signInAnonymously()
                 val code = repository.generateInviteCode()
                 repository.registerDevice(uid, code)
-                getApplication<Application>().dataStore.edit { prefs ->
+                getApplication<Application>().appDataStore.edit { prefs ->
                     prefs[KEY_ONBOARDED] = true
                     prefs[KEY_MY_UID]    = uid
                     prefs[KEY_MY_CODE]   = code
@@ -311,7 +312,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(isRefreshingCode = true)
             runCatching {
                 val newCode = repository.refreshInviteCode(myUid, oldCode)
-                getApplication<Application>().dataStore.edit { prefs ->
+                getApplication<Application>().appDataStore.edit { prefs ->
                     prefs[KEY_MY_CODE] = newCode
                 }
                 _uiState.value = _uiState.value.copy(myCode = newCode, isRefreshingCode = false)
@@ -326,7 +327,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val current = _uiState.value.deviceNames.toMutableMap()
             if (name.isBlank()) current.remove(uid) else current[uid] = name.trim()
             _uiState.value = _uiState.value.copy(deviceNames = current)
-            getApplication<Application>().dataStore.edit { prefs ->
+            getApplication<Application>().appDataStore.edit { prefs ->
                 prefs[KEY_DEVICE_NAMES] = gson.toJson(current)
             }
         }
@@ -372,8 +373,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateDndConfig(config: DndConfig) {
         _uiState.value = _uiState.value.copy(dndConfig = config)
+        DndPrefs.save(getApplication(), config)
         viewModelScope.launch {
-            getApplication<Application>().dataStore.edit { prefs ->
+            getApplication<Application>().appDataStore.edit { prefs ->
                 prefs[KEY_DND_CONFIG] = gson.toJson(config)
             }
         }
@@ -505,7 +507,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setTheme(theme: AppTheme) {
         _uiState.value = _uiState.value.copy(theme = theme)
         viewModelScope.launch {
-            getApplication<Application>().dataStore.edit { prefs ->
+            getApplication<Application>().appDataStore.edit { prefs ->
                 prefs[KEY_THEME] = theme.name
             }
         }
@@ -516,7 +518,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             repository.updateMyActivity(myUid, activity)
             _uiState.value = _uiState.value.copy(myActivity = activity)
-            getApplication<Application>().dataStore.edit { prefs ->
+            getApplication<Application>().appDataStore.edit { prefs ->
                 prefs[KEY_MY_ACTIVITY] = activity.name
             }
         }
@@ -554,7 +556,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun savePartnerUids(uids: List<String>) {
-        getApplication<Application>().dataStore.edit { prefs ->
+        getApplication<Application>().appDataStore.edit { prefs ->
             prefs[KEY_PARTNER_UIDS] = uids.joinToString(",")
         }
     }

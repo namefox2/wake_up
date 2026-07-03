@@ -14,9 +14,11 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import com.silentlink.app.DndPrefs
 import com.silentlink.app.MainActivity
 import com.silentlink.app.manager.AlarmScheduler
 import com.silentlink.app.manager.AudioControlManager
+import com.silentlink.app.manager.DndManager
 import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.repository.FirebaseRepository
 import kotlinx.coroutines.CoroutineScope
@@ -132,6 +134,13 @@ class SilentLinkService : Service() {
                             val level = runCatching {
                                 VolumeLevel.valueOf(levelName)
                             }.getOrNull() ?: return@let
+
+                            // 방해금지 시간 중 수신된 명령은 무시하고 삭제
+                            val dndConfig = DndPrefs.load(this@SilentLinkService)
+                            if (DndManager(this@SilentLinkService).isInDndTime(dndConfig)) {
+                                runCatching { repository.deleteCommand(myUid, "setVolume") }
+                                return@let
+                            }
 
                             val original = restoreLevel ?: audioManager.getCurrentVolumeLevel()
                             val ok = audioManager.setVolumeLevel(level)

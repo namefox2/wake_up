@@ -38,6 +38,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.platform.LocalContext
 import com.silentlink.app.ads.AdMobManager
+import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.service.AlarmRingService
 import com.silentlink.app.ui.MainViewModel
 import com.silentlink.app.ui.screen.AlarmScreen
@@ -111,6 +112,33 @@ fun MainNavigation(viewModel: MainViewModel) {
     val currentDestination = navBackStackEntry?.destination
     val isAlarmRinging by AlarmRingService.isRinging.collectAsState()
     val context = LocalContext.current
+    val audioManager = remember { AudioControlManager(context) }
+
+    fun hasCriticalPerms() = audioManager.canWriteSettings() && audioManager.canSetMute()
+
+    // 첫 설치 시 권한 안내 (한 번만)
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("silentlink_meta", android.content.Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("perms_prompted", false)) {
+            prefs.edit().putBoolean("perms_prompted", true).apply()
+            if (!hasCriticalPerms()) {
+                navController.navigate("settings") {
+                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+        }
+    }
+
+    var showPermGuideDialog by remember { mutableStateOf(false) }
+
+    // 새 컨트롤러 등록 시 권한이 없으면 안내
+    LaunchedEffect(Unit) {
+        viewModel.showPermissionGuide.collect {
+            if (!hasCriticalPerms()) showPermGuideDialog = true
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.pendingNavRoute.collect { route ->
@@ -120,6 +148,27 @@ fun MainNavigation(viewModel: MainViewModel) {
                 restoreState = true
             }
         }
+    }
+
+    if (showPermGuideDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showPermGuideDialog = false },
+            title = { Text("권한 설정 필요") },
+            text = { Text("상대방이 나의 볼륨을 제어하려면\n시스템 설정 변경 및 방해금지 접근 권한이 필요합니다.\n설정 화면에서 권한을 허용해 주세요.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPermGuideDialog = false
+                    navController.navigate("settings") {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }) { Text("설정으로 이동", color = AccentBlue) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermGuideDialog = false }) { Text("나중에") }
+            }
+        )
     }
 
     Scaffold(

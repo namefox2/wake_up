@@ -20,7 +20,9 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
+import com.silentlink.app.DndPrefs
 import com.silentlink.app.MainActivity
+import com.silentlink.app.manager.DndManager
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class AlarmRingService : Service() {
@@ -66,6 +68,13 @@ class AlarmRingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_DISMISS || intent == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        // 방해금지 시간이면 알람을 울리지 않음
+        val dndConfig = DndPrefs.load(this)
+        if (DndManager(this).isInDndTime(dndConfig)) {
             stopSelf()
             return START_NOT_STICKY
         }
