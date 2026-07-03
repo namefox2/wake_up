@@ -72,29 +72,30 @@ class AlarmRingService : Service() {
             return START_NOT_STICKY
         }
 
-        // 방해금지 시간이면 알람을 울리지 않음
+        val alarmId = intent.getStringExtra(EXTRA_ALARM_ID) ?: ""
+        val label = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "SilentLink 알람"
+        shouldSound = intent.getBooleanExtra(EXTRA_ALARM_SOUND, true)
+        shouldVibrate = intent.getBooleanExtra(EXTRA_ALARM_VIBRATE, true)
+
+        // startForeground must be called before any early return to satisfy
+        // Android 8+ foreground-service contract (startForegroundService was used)
+        createNotificationChannel()
+        val notification = buildNotification(alarmId, label)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        // 방해금지 시간이면 즉시 해제 (startForeground 후에 체크)
         val dndConfig = DndPrefs.load(this)
         if (DndManager(this).isInDndTime(dndConfig)) {
             stopSelf()
             return START_NOT_STICKY
         }
 
-        val alarmId = intent.getStringExtra(EXTRA_ALARM_ID) ?: ""
-        val label = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "SilentLink 알람"
-        shouldSound = intent.getBooleanExtra(EXTRA_ALARM_SOUND, true)
-        shouldVibrate = intent.getBooleanExtra(EXTRA_ALARM_VIBRATE, true)
-
         ringingLabel = label
         isRinging.value = true
-
-        createNotificationChannel()
-        val notification = buildNotification(alarmId, label)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
 
         if (shouldSound) startRinging()
         if (shouldVibrate) startVibrating()

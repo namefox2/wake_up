@@ -315,6 +315,20 @@ class FirebaseRepository {
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
     }
+
+    suspend fun redeemCoupon(myUid: String, code: String): CouponResult {
+        val upper = code.trim().uppercase()
+        val freeSlots = VALID_COUPONS[upper] ?: return CouponResult.INVALID
+        val usedRef = db.getReference("users/$myUid/usedCoupons/$upper")
+        if (usedRef.get().await().exists()) return CouponResult.ALREADY_USED
+        val current = db.getReference("users/$myUid/purchasedSlots").get().await()
+            .getValue(Int::class.java) ?: 0
+        if (current >= 4) return CouponResult.MAX_REACHED
+        usedRef.setValue(true).await()
+        val newSlots = minOf(current + freeSlots, 4)
+        db.getReference("users/$myUid/purchasedSlots").setValue(newSlots).await()
+        return CouponResult.SUCCESS
+    }
 }
 
 enum class ConnectResult { SUCCESS, NOT_FOUND, ALREADY_CONNECTED, SLOT_LIMIT_REACHED }
@@ -322,17 +336,3 @@ enum class LinkResult { LINKED, RESTORED, FAILED }
 enum class CouponResult { SUCCESS, INVALID, ALREADY_USED, MAX_REACHED }
 
 private val VALID_COUPONS = mapOf("SILENT" to 1)  // 코드 → 지급 슬롯 수
-
-suspend fun redeemCoupon(myUid: String, code: String): CouponResult {
-    val upper = code.trim().uppercase()
-    val freeSlots = VALID_COUPONS[upper] ?: return CouponResult.INVALID
-    val usedRef = db.getReference("users/$myUid/usedCoupons/$upper")
-    if (usedRef.get().await().exists()) return CouponResult.ALREADY_USED
-    val current = db.getReference("users/$myUid/purchasedSlots").get().await()
-        .getValue(Int::class.java) ?: 0
-    if (current >= 4) return CouponResult.MAX_REACHED
-    usedRef.setValue(true).await()
-    val newSlots = minOf(current + freeSlots, 4)
-    db.getReference("users/$myUid/purchasedSlots").setValue(newSlots).await()
-    return CouponResult.SUCCESS
-}
