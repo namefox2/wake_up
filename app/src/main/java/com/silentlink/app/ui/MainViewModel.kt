@@ -404,6 +404,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun deleteMyAlarm(alarmId: String) {
+        viewModelScope.launch {
+            val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+            runCatching { repository.deleteAlarm(myUid, alarmId) }.onFailure {
+                _uiState.value = _uiState.value.copy(errorMessage = "알람 삭제 실패: ${it.message}")
+            }
+        }
+    }
+
     fun toggleAlarmFor(partnerUid: String, alarmId: String, enabled: Boolean) {
         val partner = _uiState.value.partners.find { it.uid == partnerUid } ?: return
         val alarm = partner.alarmsForThem.find { it.id == alarmId } ?: return

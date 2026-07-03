@@ -183,7 +183,7 @@ fun AlarmScreen(viewModel: MainViewModel) {
                             alarm = alarm,
                             onToggle = { viewModel.toggleAlarmFor(selectedUid, alarm.id, !alarm.isEnabled) },
                             onDelete = { viewModel.deleteAlarmFor(selectedUid, alarm.id) },
-                            onClick = { editingAlarm = alarm }
+                            onClick = { editingAlarm = alarm },
                         )
                     }
                 }
@@ -195,7 +195,13 @@ fun AlarmScreen(viewModel: MainViewModel) {
                         SectionLabel("상대방이 나에게 설정한 알람")
                     }
                     items(uiState.alarmsFromPartners, key = { "p_${it.id}" }) { alarm ->
-                        AlarmCard(alarm = alarm, readOnly = true, onToggle = {}, onDelete = {}, onClick = {})
+                        AlarmCard(
+                            alarm = alarm,
+                            readOnly = true,
+                            onToggle = {},
+                            onDelete = { viewModel.deleteMyAlarm(alarm.id) },
+                            onClick = {}
+                        )
                     }
                 }
 
@@ -265,10 +271,27 @@ private fun AlarmCard(
     alarm: RemoteAlarm,
     readOnly: Boolean = false,
     onToggle: () -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("알람 삭제") },
+            text = { Text("이 알람을 삭제할까요?") },
+            confirmButton = {
+                TextButton(
+                    onClick = { onDelete?.invoke(); showDeleteConfirm = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = DangerRed)
+                ) { Text("삭제") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("취소") } }
+        )
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -314,7 +337,7 @@ private fun AlarmCard(
                         onCheckedChange = { onToggle() },
                         colors = SwitchDefaults.colors(checkedTrackColor = AccentBlue)
                     )
-                    IconButton(onClick = onDelete) {
+                    IconButton(onClick = { showDeleteConfirm = true }) {
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "삭제",
@@ -328,6 +351,16 @@ private fun AlarmCard(
                         fontSize = 10.sp,
                         color = SuccessGreen.copy(alpha = 0.7f)
                     )
+                    if (onDelete != null) {
+                        IconButton(onClick = { showDeleteConfirm = true }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "삭제",
+                                tint = colors.onSurface.copy(alpha = 0.35f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
