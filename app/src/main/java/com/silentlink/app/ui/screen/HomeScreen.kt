@@ -439,7 +439,13 @@ private fun PartnerListTab(
                             onValueChange = { renameInput = it.take(20) },
                             placeholder = { Text("예: 남자친구, 엄마") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedBorderColor = AccentBlue,
+                                cursorColor = AccentBlue
+                            )
                         )
                     },
                     confirmButton = {
@@ -527,7 +533,13 @@ private fun PartnerCard(
                     onValueChange = { renameInput = it.take(20) },
                     placeholder = { Text("예: 남자친구, 엄마") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = AccentBlue,
+                        cursorColor = AccentBlue
+                    )
                 )
             },
             confirmButton = {
