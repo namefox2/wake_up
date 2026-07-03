@@ -62,17 +62,15 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        intent.getStringExtra("navigate_to")?.let { viewModel.handleNotificationRoute(it) }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         AdMobManager.initialize(this)
         intent?.getStringExtra("navigate_to")?.let { viewModel.handleNotificationRoute(it) }
+        addOnNewIntentListener { newIntent ->
+            setIntent(newIntent)
+            newIntent.getStringExtra("navigate_to")?.let { viewModel.handleNotificationRoute(it) }
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
