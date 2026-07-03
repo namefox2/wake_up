@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -266,6 +267,7 @@ private fun EmptyAlarmHint() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AlarmCard(
     alarm: RemoteAlarm,
@@ -388,6 +390,7 @@ private fun DayChip(label: String, active: Boolean) {
 
 // ─── 알람 추가/수정 다이얼로그 ─────────────────────────────
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AlarmEditDialog(
     alarm: RemoteAlarm?,
