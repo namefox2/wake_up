@@ -141,7 +141,7 @@ class SilentLinkService : Service() {
                                 if (level == VolumeLevel.MUTE && actualLevel != VolumeLevel.MUTE) {
                                     showDndPermissionNotification()
                                 }
-                                scheduleRestore(myUid, original)
+                                scheduleRestore(original)
                                 showVolumeChangedNotification()
                                 runCatching { repository.updateVolumeStatus(myUid, actualLevel) }
                             }
@@ -201,7 +201,7 @@ class SilentLinkService : Service() {
         }
     }
 
-    private fun scheduleRestore(myUid: String, original: VolumeLevel) {
+    private fun scheduleRestore(original: VolumeLevel) {
         val restoreAtMs = System.currentTimeMillis() + 10 * 60 * 1000L
         restoreLevel = original
         servicePrefs.edit()
@@ -212,7 +212,7 @@ class SilentLinkService : Service() {
         restoreJob = scope.launch {
             val delayMs = restoreAtMs - System.currentTimeMillis()
             if (delayMs > 0) delay(delayMs)
-            doRestore(myUid)
+            doRestore()
         }
     }
 
@@ -225,20 +225,24 @@ class SilentLinkService : Service() {
         }
         restoreLevel = level
         restoreJob?.cancel()
+        // 볼륨 복원은 Firebase 초기화와 무관하게 바로 진행
         restoreJob = scope.launch {
-            val myUid = repository.getCurrentUserId() ?: awaitUserId() ?: return@launch
             val delayMs = restoreAtMs - System.currentTimeMillis()
             if (delayMs > 0) delay(delayMs)
-            doRestore(myUid)
+            doRestore()
         }
     }
 
-    private suspend fun doRestore(myUid: String) {
+    private suspend fun doRestore() {
         val target = restoreLevel ?: return
         restoreLevel = null
         servicePrefs.edit().remove(KEY_RESTORE_LEVEL).remove(KEY_RESTORE_AT_MS).apply()
         audioManager.setVolumeLevel(target)
-        runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
+        // Firebase 상태 업데이트는 비동기로 — 볼륨 복원 자체를 막지 않음
+        scope.launch {
+            val myUid = repository.getCurrentUserId() ?: awaitUserId() ?: return@launch
+            runCatching { repository.updateVolumeStatus(myUid, audioManager.getCurrentVolumeLevel()) }
+        }
     }
 
     private fun startListeningControllers() {
