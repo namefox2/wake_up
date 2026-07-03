@@ -73,6 +73,7 @@ class SilentLinkService : Service() {
         audioManager = AudioControlManager(this)
         alarmScheduler = AlarmScheduler(this)
         dndManager = DndManager(this)
+        ServiceLogger.log(this, "SERVICE", "onCreate 배터리최적화=${ServiceLogger.batteryOptStatus(this)}")
         createNotificationChannel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -90,7 +91,13 @@ class SilentLinkService : Service() {
     }
 
     // START_STICKY: OS가 서비스를 종료해도 자동으로 재시작
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent == null) {
+            // intent==null 이면 START_STICKY에 의한 시스템 자동 재시작
+            ServiceLogger.log(this, "SERVICE", "시스템 재시작(START_STICKY) flags=$flags")
+        }
+        return START_STICKY
+    }
 
     // Firebase Auth 초기화가 늦어질 수 있으므로 최대 10초 재시도
     private suspend fun awaitUserId(): String? {
@@ -161,6 +168,7 @@ class SilentLinkService : Service() {
                     }
                 }.isFailure
                 if (isActive) {
+                    if (failed) ServiceLogger.log(this@SilentLinkService, "FIREBASE", "명령 수신 실패, ${backoffMs}ms 후 재시도")
                     delay(if (failed) backoffMs else 2_000L)
                     backoffMs = if (failed) minOf(backoffMs * 2, 60_000L) else 5_000L
                 }
@@ -359,6 +367,7 @@ class SilentLinkService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        ServiceLogger.log(this, "SERVICE", "onDestroy 배터리최적화=${ServiceLogger.batteryOptStatus(this)}")
         ringerModeReceiver?.let { runCatching { unregisterReceiver(it) } }
         ringerModeReceiver = null
         restoreJob?.cancel()

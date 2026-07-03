@@ -39,6 +39,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.silentlink.app.service.ServiceLogger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.silentlink.app.billing.SUPPORT_TIERS
 import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.model.AppTheme
@@ -107,6 +111,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     var showThemeDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showCouponDialog by remember { mutableStateOf(false) }
+    var showDebugLog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -368,6 +373,19 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // 디버그 로그 (임시)
+        SettingSection(title = "디버그") {
+            SettingItem(
+                icon = Icons.Default.BugReport,
+                title = "서비스 로그 보기",
+                subtitle = "서비스 시작/종료/Firebase 오류 기록",
+                iconTint = colors.onSurface.copy(alpha = 0.5f),
+                onClick = { showDebugLog = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -451,6 +469,10 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 showCouponDialog = false
             }
         )
+    }
+
+    if (showDebugLog) {
+        DebugLogDialog(context = context, onDismiss = { showDebugLog = false })
     }
 }
 
@@ -653,6 +675,82 @@ private fun CouponDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
                         shape = RoundedCornerShape(10.dp)
                     ) { Text("적용") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DebugLogDialog(context: Context, onDismiss: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    var logText by remember { mutableStateOf("로그 불러오는 중...") }
+
+    LaunchedEffect(Unit) {
+        logText = withContext(Dispatchers.IO) { ServiceLogger.readLogs(context) }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = colors.surface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+        ) {
+            Column(modifier = Modifier.padding(20.dp).fillMaxSize()) {
+                Text("서비스 로그", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = colors.onBackground)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "최근 400줄 · 오래된 순→최신 순",
+                    fontSize = 11.sp, color = colors.onSurface.copy(alpha = 0.45f)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(colors.surfaceVariant, RoundedCornerShape(10.dp))
+                        .verticalScroll(rememberScrollState())
+                        .padding(10.dp)
+                ) {
+                    Text(
+                        text = logText,
+                        fontSize = 10.sp,
+                        color = colors.onSurface.copy(alpha = 0.85f),
+                        lineHeight = 15.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) { ServiceLogger.clear(context) }
+                                logText = "(로그 지움)"
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                    ) { Text("지우기", fontSize = 13.sp) }
+                    OutlinedButton(
+                        onClick = { clipboard.setText(AnnotatedString(logText)) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                    ) { Text("복사", fontSize = 13.sp) }
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                    ) { Text("닫기", fontSize = 13.sp) }
                 }
             }
         }

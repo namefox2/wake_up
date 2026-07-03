@@ -11,6 +11,7 @@ import android.os.SystemClock
 class ServiceWatchdogReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        ServiceLogger.log(context, "WATCHDOG", "감시자 실행 배터리최적화=${ServiceLogger.batteryOptStatus(context)}")
         SilentLinkService.start(context)
         schedule(context)
     }
