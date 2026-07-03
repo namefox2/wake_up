@@ -2,6 +2,8 @@ package com.silentlink.app.ui.screen
 
 import android.app.Activity
 import android.app.AlarmManager
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
@@ -29,6 +31,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -42,6 +47,15 @@ import com.silentlink.app.ui.theme.AccentBlue
 import com.silentlink.app.ui.theme.DangerRed
 import com.silentlink.app.ui.theme.SuccessGreen
 import com.silentlink.app.ui.theme.toSilentLinkColors
+
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
 
 @Composable
 fun SettingsScreen(viewModel: MainViewModel) {
@@ -92,6 +106,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showCouponDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -171,7 +186,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 if (uiState.maxDevices < 5) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
-                        onClick = { viewModel.requestSlotPurchase(context as Activity) },
+                        onClick = { context.findActivity()?.let { viewModel.requestSlotPurchase(it) } },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
@@ -188,6 +203,18 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 } else {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("최대 슬롯에 도달했습니다 (5대)", fontSize = 12.sp, color = SuccessGreen)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = colors.outline.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = { showCouponDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.CardGiftcard, contentDescription = null, modifier = Modifier.size(16.dp), tint = AccentBlue)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("쿠폰 코드 입력", fontSize = 13.sp, color = AccentBlue)
                 }
             }
         }
@@ -212,7 +239,9 @@ fun SettingsScreen(viewModel: MainViewModel) {
                             rowTiers.forEach { tier ->
                                 OutlinedButton(
                                     onClick = {
-                                        viewModel.billingManager.launchBillingFlow(context as Activity, tier.productId)
+                                        context.findActivity()?.let {
+                                            viewModel.billingManager.launchBillingFlow(it, tier.productId)
+                                        }
                                     },
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(10.dp),
@@ -411,6 +440,17 @@ fun SettingsScreen(viewModel: MainViewModel) {
     if (showPrivacyDialog) {
         PrivacyDialog(onDismiss = { showPrivacyDialog = false })
     }
+
+    if (showCouponDialog) {
+        CouponDialog(
+            resultMessage = uiState.couponMessage,
+            onRedeem = { code -> viewModel.redeemCoupon(code) },
+            onDismiss = {
+                viewModel.clearCouponMessage()
+                showCouponDialog = false
+            }
+        )
+    }
 }
 
 @Composable
@@ -554,6 +594,64 @@ private fun ThemePickerDialog(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CouponDialog(
+    resultMessage: String?,
+    onRedeem: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    var code by remember { mutableStateOf("") }
+    val isSuccess = resultMessage?.startsWith("쿠폰이 적용") == true
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = colors.surface),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text("쿠폰 코드 입력", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = colors.onBackground)
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it.uppercase() },
+                    label = { Text("쿠폰 코드") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colors.onSurface,
+                        unfocusedTextColor = colors.onSurface,
+                        focusedBorderColor = AccentBlue,
+                        cursorColor = AccentBlue
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { if (code.isNotBlank()) onRedeem(code.trim()) })
+                )
+                if (resultMessage != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = resultMessage,
+                        fontSize = 13.sp,
+                        color = if (isSuccess) SuccessGreen else DangerRed
+                    )
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("닫기") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { if (code.isNotBlank()) onRedeem(code.trim()) },
+                        enabled = code.isNotBlank() && !isSuccess,
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                        shape = RoundedCornerShape(10.dp)
+                    ) { Text("적용") }
                 }
             }
         }

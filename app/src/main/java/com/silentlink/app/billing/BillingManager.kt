@@ -109,6 +109,10 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
     }
 
     fun launchBillingFlow(activity: Activity, productId: String) {
+        if (!billingClient.isReady) {
+            _billingState.value = BillingState.Error("결제 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.")
+            return
+        }
         val details = productDetailsList.find { it.productId == productId } ?: run {
             _billingState.value = BillingState.Error("상품 정보를 불러올 수 없습니다")
             return

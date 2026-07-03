@@ -24,6 +24,7 @@ import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.repository.ConnectResult
+import com.silentlink.app.repository.CouponResult
 import com.silentlink.app.repository.FirebaseRepository
 import com.silentlink.app.repository.LinkResult
 import com.silentlink.app.service.SilentLinkService
@@ -521,6 +522,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun redeemCoupon(code: String) {
+        viewModelScope.launch {
+            val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+            val result = runCatching { repository.redeemCoupon(myUid, code) }.getOrElse {
+                _uiState.value = _uiState.value.copy(couponMessage = "오류: ${it.message}")
+                return@launch
+            }
+            when (result) {
+                CouponResult.SUCCESS -> {
+                    val slots = runCatching { repository.getPurchasedSlots(myUid) }
+                        .getOrDefault(_uiState.value.purchasedSlots)
+                    _uiState.value = _uiState.value.copy(
+                        purchasedSlots = slots,
+                        couponMessage = "쿠폰이 적용되었습니다! 슬롯 1개가 추가되었습니다."
+                    )
+                }
+                CouponResult.INVALID -> _uiState.value = _uiState.value.copy(couponMessage = "유효하지 않은 쿠폰 코드입니다")
+                CouponResult.ALREADY_USED -> _uiState.value = _uiState.value.copy(couponMessage = "이미 사용한 쿠폰입니다")
+                CouponResult.MAX_REACHED -> _uiState.value = _uiState.value.copy(couponMessage = "이미 최대 슬롯에 도달했습니다")
+            }
+        }
+    }
+
+    fun clearCouponMessage() {
+        _uiState.value = _uiState.value.copy(couponMessage = null)
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
@@ -553,7 +581,8 @@ data class SilentLinkUiState(
     val googleEmail: String? = null,
     val selectedAlarmPartnerUid: String = "",
     val isRefreshingCode: Boolean = false,
-    val deviceNames: Map<String, String> = emptyMap()
+    val deviceNames: Map<String, String> = emptyMap(),
+    val couponMessage: String? = null
 ) {
     val isConnected: Boolean get() = partners.isNotEmpty()
     val maxDevices: Int get() = 1 + purchasedSlots
