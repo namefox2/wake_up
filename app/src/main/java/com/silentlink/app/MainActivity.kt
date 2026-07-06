@@ -121,7 +121,7 @@ fun MainNavigation(viewModel: MainViewModel) {
         if (!hasCriticalPerms() && viewModel.consumePermissionPrompt()) {
             val prefs = context.getSharedPreferences("silentlink_meta", android.content.Context.MODE_PRIVATE)
             val promptCount = prefs.getInt("perms_prompt_count", 0)
-            if (promptCount < 3) {
+            if (promptCount == 0) {
                 prefs.edit().putInt("perms_prompt_count", promptCount + 1).apply()
                 navController.navigate("settings") {
                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }

@@ -175,6 +175,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val uid  = repository.signInAnonymously()
                 val code = repository.generateInviteCode()
                 repository.registerDevice(uid, code)
+                // 동의 기록을 Firebase에 저장 (법적 근거 확보)
+                runCatching {
+                    val ctx = getApplication<Application>()
+                    val pm = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+                    val versionName = pm.versionName ?: "unknown"
+                    val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P)
+                        pm.longVersionCode else pm.versionCode.toLong()
+                    repository.recordConsent(
+                        uid = uid,
+                        appVersion = versionName,
+                        appVersionCode = versionCode,
+                        androidSdkInt = android.os.Build.VERSION.SDK_INT,
+                        deviceManufacturer = android.os.Build.MANUFACTURER,
+                        deviceModel = android.os.Build.MODEL
+                    )
+                }
                 getApplication<Application>().appDataStore.edit { prefs ->
                     prefs[KEY_ONBOARDED] = true
                     prefs[KEY_MY_UID]    = uid

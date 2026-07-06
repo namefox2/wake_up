@@ -316,6 +316,28 @@ class FirebaseRepository {
         awaitClose { ref.removeEventListener(listener) }
     }
 
+    suspend fun recordConsent(
+        uid: String,
+        appVersion: String,
+        appVersionCode: Long,
+        androidSdkInt: Int,
+        deviceManufacturer: String,
+        deviceModel: String
+    ) {
+        db.getReference("users/$uid/consent").setValue(
+            mapOf(
+                "termsAccepted" to true,
+                "privacyAccepted" to true,
+                "consentVersion" to "1",
+                "timestamp" to System.currentTimeMillis(),
+                "appVersion" to appVersion,
+                "appVersionCode" to appVersionCode,
+                "androidSdk" to androidSdkInt,
+                "device" to "$deviceManufacturer $deviceModel"
+            )
+        ).await()
+    }
+
     suspend fun redeemCoupon(myUid: String, code: String): CouponResult {
         val upper = code.trim().uppercase()
         val freeSlots = VALID_COUPONS[upper] ?: return CouponResult.INVALID
