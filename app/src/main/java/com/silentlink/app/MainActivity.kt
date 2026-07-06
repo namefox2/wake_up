@@ -116,9 +116,9 @@ fun MainNavigation(viewModel: MainViewModel) {
 
     fun hasCriticalPerms() = audioManager.canWriteSettings() && audioManager.canSetMute()
 
-    // 권한 안내: 미허용 상태가 지속되면 최대 3회까지 설정 화면으로 안내
+    // 권한 안내: ViewModel 생존 기간 동안 1회만 설정 탐색 (Activity 재생성 시 플래시 방지)
     LaunchedEffect(Unit) {
-        if (!hasCriticalPerms()) {
+        if (!hasCriticalPerms() && viewModel.consumePermissionPrompt()) {
             val prefs = context.getSharedPreferences("silentlink_meta", android.content.Context.MODE_PRIVATE)
             val promptCount = prefs.getInt("perms_prompt_count", 0)
             if (promptCount < 3) {

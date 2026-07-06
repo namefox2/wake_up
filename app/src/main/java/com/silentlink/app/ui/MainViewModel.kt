@@ -47,11 +47,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val gson = Gson()
     val billingManager = BillingManager(application)
 
-    private val _uiState = MutableStateFlow(SilentLinkUiState())
+    // SharedPreferences에서 동기적으로 읽어 DataStore 비동기 로드 전 첫 프레임 플래시 방지
+    private val quickPrefs = application.getSharedPreferences("silentlink_quick", Context.MODE_PRIVATE)
+    private val _uiState = MutableStateFlow(SilentLinkUiState(
+        theme = runCatching { AppTheme.valueOf(quickPrefs.getString("theme", "") ?: "") }
+            .getOrElse { AppTheme.DARK }
+    ))
     val uiState: StateFlow<SilentLinkUiState> = _uiState
 
-    private val _isOnboarded = MutableStateFlow(false)
+    private val _isOnboarded = MutableStateFlow(quickPrefs.getBoolean("onboarded", false))
     val isOnboarded: StateFlow<Boolean> = _isOnboarded
+
+    // ViewModel 생존 기간 동안 권한 안내 탐색을 한 번만 허용 (Activity 재생성 플래시 방지)
+    private var permissionPromptShown = false
+    fun consumePermissionPrompt(): Boolean {
+        if (permissionPromptShown) return false
+        permissionPromptShown = true
+        return true
+    }
 
     // Google Sign-In 요청 이벤트 (Activity에서 launcher로 처리)
     private val _googleSignInRequest = MutableSharedFlow<Intent>(extraBufferCapacity = 1)
@@ -100,12 +113,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val context = getApplication<Application>()
         val prefs = context.appDataStore.data.first()
         val onboarded = prefs[KEY_ONBOARDED] ?: false
+        quickPrefs.edit().putBoolean("onboarded", onboarded).apply()
         _isOnboarded.value = onboarded
         if (!onboarded) return
 
         val myUid  = prefs[KEY_MY_UID]  ?: return
         val myCode = prefs[KEY_MY_CODE] ?: return
         val theme  = runCatching { AppTheme.valueOf(prefs[KEY_THEME] ?: "") }.getOrDefault(AppTheme.DARK)
+        quickPrefs.edit().putString("theme", theme.name).apply()
         val dndConfig  = runCatching { gson.fromJson(prefs[KEY_DND_CONFIG], DndConfig::class.java) }.getOrDefault(DndConfig())
         val myActivity = runCatching { UserActivity.valueOf(prefs[KEY_MY_ACTIVITY] ?: "") }.getOrDefault(UserActivity.NONE)
 
@@ -167,6 +182,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _uiState.value = _uiState.value.copy(myUid = uid, myCode = code)
                 _isOnboarded.value = true
+                quickPrefs.edit().putBoolean("onboarded", true).apply()
                 SilentLinkService.start(getApplication())
                 listenToMyAlarms(uid)
                 listenToControllers(uid)
@@ -506,6 +522,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setTheme(theme: AppTheme) {
         _uiState.value = _uiState.value.copy(theme = theme)
+        quickPrefs.edit().putString("theme", theme.name).apply()
         viewModelScope.launch {
             getApplication<Application>().appDataStore.edit { prefs ->
                 prefs[KEY_THEME] = theme.name
