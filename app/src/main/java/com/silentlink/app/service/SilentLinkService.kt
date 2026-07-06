@@ -78,15 +78,30 @@ class SilentLinkService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // Catch any uncaught exception in this process and write it to the debug log
+        val prevHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            ServiceLogger.log(this, "CRASH", "${e.javaClass.simpleName} in ${t.name}: ${e.message}")
+            prevHandler?.uncaughtException(t, e)
+        }
+        ServiceLogger.log(this, "SERVICE", "onCreate [A] 배터리최적화=${ServiceLogger.batteryOptStatus(this)}")
         audioManager = AudioControlManager(this)
         alarmScheduler = AlarmScheduler(this)
         dndManager = DndManager(this)
-        ServiceLogger.log(this, "SERVICE", "onCreate 배터리최적화=${ServiceLogger.batteryOptStatus(this)}")
+        ServiceLogger.log(this, "SERVICE", "onCreate [B] 매니저 초기화완료")
         createNotificationChannel()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NOTIFICATION_ID, buildNotification())
+        ServiceLogger.log(this, "SERVICE", "onCreate [C] 채널 생성완료")
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(NOTIFICATION_ID, buildNotification())
+            }
+            ServiceLogger.log(this, "SERVICE", "onCreate [D] startForeground 성공")
+        } catch (e: Exception) {
+            ServiceLogger.log(this, "SERVICE", "onCreate [D] startForeground 실패: ${e.javaClass.simpleName}: ${e.message}")
+            stopSelf()
+            return
         }
         startListeningCommands()
         startListeningAlarms()
@@ -96,6 +111,7 @@ class SilentLinkService : Service() {
         registerRingerModeReceiver()
         checkPendingRestore()
         ServiceWatchdogReceiver.schedule(this)
+        ServiceLogger.log(this, "SERVICE", "onCreate [E] 완료")
     }
 
     // START_STICKY: OS가 서비스를 종료해도 자동으로 재시작
