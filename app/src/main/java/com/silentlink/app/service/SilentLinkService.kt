@@ -21,6 +21,7 @@ import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.manager.DndManager
 import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.repository.FirebaseRepository
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,7 +36,10 @@ import kotlinx.coroutines.sync.withLock
 class SilentLinkService : Service() {
 
     private val repository = FirebaseRepository()
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        ServiceLogger.log(this, "SERVICE", "코루틴 예외: ${throwable.javaClass.simpleName}: ${throwable.message}")
+    }
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
     private lateinit var audioManager: AudioControlManager
     private lateinit var alarmScheduler: AlarmScheduler
     private lateinit var dndManager: DndManager
@@ -60,7 +64,11 @@ class SilentLinkService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, SilentLinkService::class.java)
-            context.startForegroundService(intent)
+            try {
+                context.startForegroundService(intent)
+            } catch (e: Exception) {
+                ServiceLogger.log(context, "SERVICE", "startForegroundService 실패: ${e.javaClass.simpleName}: ${e.message}")
+            }
         }
 
         fun stop(context: Context) {
@@ -92,10 +100,8 @@ class SilentLinkService : Service() {
 
     // START_STICKY: OS가 서비스를 종료해도 자동으로 재시작
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent == null) {
-            // intent==null 이면 START_STICKY에 의한 시스템 자동 재시작
-            ServiceLogger.log(this, "SERVICE", "시스템 재시작(START_STICKY) flags=$flags")
-        }
+        val reason = if (intent == null) "START_STICKY재시작" else "명시적시작"
+        ServiceLogger.log(this, "SERVICE", "onStartCommand reason=$reason flags=$flags startId=$startId")
         return START_STICKY
     }
 
