@@ -193,6 +193,12 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     Text("최대 슬롯에 도달했습니다 (5대)", fontSize = 12.sp, color = SuccessGreen)
                 }
 
+                uiState.errorMessage?.let { error ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp))
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = colors.outline.copy(alpha = 0.2f))
                 Spacer(modifier = Modifier.height(8.dp))
