@@ -42,7 +42,6 @@ import com.silentlink.app.service.ServiceLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.silentlink.app.billing.SUPPORT_TIERS
 import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.model.AppTheme
 import com.silentlink.app.ui.MainViewModel
@@ -100,6 +99,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     var showThemeDialog by remember { mutableStateOf(false) }
     var showCouponDialog by remember { mutableStateOf(false) }
     var showDebugLog by remember { mutableStateOf(false) }
+    var showSlotLoginDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -179,7 +179,10 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 if (uiState.maxDevices < 5) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
-                        onClick = { context.findActivity()?.let { viewModel.requestSlotPurchase(it) } },
+                        onClick = {
+                            if (uiState.googleEmail == null) showSlotLoginDialog = true
+                            else context.findActivity()?.let { viewModel.requestSlotPurchase(it) }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
@@ -212,46 +215,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
 
-        // 개발자 후원
-        SettingSection(title = "개발자 후원") {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "앱 개발을 응원해주세요 ❤️",
-                    fontSize = 13.sp,
-                    color = colors.onSurface.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SUPPORT_TIERS.chunked(2).forEach { rowTiers ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            rowTiers.forEach { tier ->
-                                OutlinedButton(
-                                    onClick = {
-                                        context.findActivity()?.let {
-                                            viewModel.billingManager.launchBillingFlow(it, tier.productId)
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
-                                    border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(text = tier.displayName, fontSize = 11.sp, color = AccentBlue.copy(alpha = 0.7f))
-                                        Text(text = tier.price, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -414,6 +378,23 @@ fun SettingsScreen(viewModel: MainViewModel) {
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+    }
+
+    if (showSlotLoginDialog) {
+        AlertDialog(
+            onDismissRequest = { showSlotLoginDialog = false },
+            title = { Text("Google 로그인 필요") },
+            text = { Text("결제를 위해 Google 로그인이 필요합니다.\n로그인하시겠습니까?", fontSize = 14.sp, lineHeight = 20.sp) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSlotLoginDialog = false
+                    context.findActivity()?.let { viewModel.requestSlotPurchase(it) }
+                }) { Text("로그인", color = AccentBlue) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSlotLoginDialog = false }) { Text("취소") }
+            }
+        )
     }
 
     if (showDisconnectDialog) {

@@ -86,7 +86,7 @@ fun AlarmScreen(viewModel: MainViewModel) {
                     .background(colors.surface),
                 contentAlignment = Alignment.Center
             ) {
-                BannerAdView()
+                BannerAdView(adConsentAccepted = uiState.adConsentAccepted)
             }
             LazyColumn(
                 modifier = Modifier

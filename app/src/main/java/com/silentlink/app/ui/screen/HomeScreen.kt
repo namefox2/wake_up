@@ -148,7 +148,7 @@ fun HomeScreen(viewModel: MainViewModel) {
             .verticalScroll(rememberScrollState())
     ) {
         Box(modifier = Modifier.fillMaxWidth().background(colors.surface), contentAlignment = Alignment.Center) {
-            BannerAdView()
+            BannerAdView(adConsentAccepted = uiState.adConsentAccepted)
         }
 
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {

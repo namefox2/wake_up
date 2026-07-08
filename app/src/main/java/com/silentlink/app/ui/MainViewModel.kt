@@ -96,6 +96,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val KEY_DND_CONFIG   = stringPreferencesKey("dnd_config")
         val KEY_MY_ACTIVITY  = stringPreferencesKey("my_activity")
         val KEY_DEVICE_NAMES = stringPreferencesKey("device_names")
+        val KEY_AD_CONSENT   = booleanPreferencesKey("ad_consent")
     }
 
     init {
@@ -137,6 +138,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }.getOrDefault(emptyMap())
 
         val resolvedDnd = dndConfig ?: DndConfig()
+        val adConsent = prefs[KEY_AD_CONSENT] ?: false
         _uiState.value = _uiState.value.copy(
             myCode     = myCode,
             myUid      = myUid,
@@ -147,7 +149,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             myActivity = myActivity,
             purchasedSlots = purchasedSlots,
             googleEmail = repository.getGoogleEmail(),
-            deviceNames = deviceNames
+            deviceNames = deviceNames,
+            adConsentAccepted = adConsent
         )
         DndPrefs.save(context, resolvedDnd)
 
@@ -192,11 +195,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 getApplication<Application>().appDataStore.edit { prefs ->
-                    prefs[KEY_ONBOARDED] = true
-                    prefs[KEY_MY_UID]    = uid
-                    prefs[KEY_MY_CODE]   = code
+                    prefs[KEY_ONBOARDED]  = true
+                    prefs[KEY_MY_UID]     = uid
+                    prefs[KEY_MY_CODE]    = code
+                    prefs[KEY_AD_CONSENT] = adConsentAccepted
                 }
-                _uiState.value = _uiState.value.copy(myUid = uid, myCode = code)
+                _uiState.value = _uiState.value.copy(myUid = uid, myCode = code, adConsentAccepted = adConsentAccepted)
                 _isOnboarded.value = true
                 quickPrefs.edit().putBoolean("onboarded", true).apply()
                 SilentLinkService.start(getApplication())
@@ -619,7 +623,8 @@ data class SilentLinkUiState(
     val isRefreshingCode: Boolean = false,
     val deviceNames: Map<String, String> = emptyMap(),
     val couponMessage: String? = null,
-    val couponSuccess: Boolean = false
+    val couponSuccess: Boolean = false,
+    val adConsentAccepted: Boolean = false
 ) {
     val isConnected: Boolean get() = partners.isNotEmpty()
     val maxDevices: Int get() = 1 + purchasedSlots

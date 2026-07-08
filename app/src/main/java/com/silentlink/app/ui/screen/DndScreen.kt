@@ -45,7 +45,7 @@ fun DndScreen(viewModel: MainViewModel) {
     ) {
         // 광고 배너
         Box(modifier = Modifier.fillMaxWidth().background(colors.surface), contentAlignment = Alignment.Center) {
-            BannerAdView()
+            BannerAdView(adConsentAccepted = uiState.adConsentAccepted)
         }
 
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
