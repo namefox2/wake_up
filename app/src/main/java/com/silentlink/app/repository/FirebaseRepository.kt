@@ -340,6 +340,28 @@ class FirebaseRepository {
         ).await()
     }
 
+    suspend fun deleteAccount(uid: String, inviteCode: String) {
+        // 1. 파트너/컨트롤러 양방향 링크 정리
+        val partnerUids = runCatching { getPartnerUids(uid) }.getOrDefault(emptyList())
+        partnerUids.forEach { partnerUid ->
+            runCatching { db.getReference("devices/$partnerUid/registeredBy/$uid").removeValue().await() }
+        }
+        val controllerSnap = runCatching { db.getReference("devices/$uid/registeredBy").get().await() }.getOrNull()
+        controllerSnap?.children?.mapNotNull { it.key }?.forEach { controllerUid ->
+            runCatching { db.getReference("devices/$controllerUid/partnerIds/$uid").removeValue().await() }
+        }
+        // 2. 기기 데이터 삭제
+        runCatching { db.getReference("devices/$uid").removeValue().await() }
+        // 3. 유저 데이터 삭제
+        runCatching { db.getReference("users/$uid").removeValue().await() }
+        // 4. 초대 코드 삭제
+        if (inviteCode.isNotEmpty()) {
+            runCatching { db.getReference("codes/$inviteCode").removeValue().await() }
+        }
+        // 5. Firebase Auth 계정 삭제
+        runCatching { auth.currentUser?.delete()?.await() }
+    }
+
     suspend fun redeemCoupon(myUid: String, code: String): CouponResult {
         val upper = code.trim().uppercase()
         // 쿠폰 유효성을 Firebase에서 검증 (서버 사이드 관리)

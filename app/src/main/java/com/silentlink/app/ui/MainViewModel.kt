@@ -591,6 +591,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(couponMessage = null, couponSuccess = false)
     }
 
+    fun deleteAccount() {
+        viewModelScope.launch {
+            val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+            val myCode = _uiState.value.myCode
+            try {
+                partnerListenerJobs.values.forEach { jobs -> jobs.forEach { it.cancel() } }
+                partnerListenerJobs.clear()
+                repository.deleteAccount(myUid, myCode)
+                val context = getApplication<Application>()
+                context.appDataStore.edit { it.clear() }
+                quickPrefs.edit().clear().apply()
+                SilentLinkService.stop(context)
+                _uiState.value = SilentLinkUiState()
+                _isOnboarded.value = false
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(errorMessage = "계정 삭제 실패: ${e.message}")
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }

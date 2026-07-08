@@ -100,6 +100,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     var showCouponDialog by remember { mutableStateOf(false) }
     var showDebugLog by remember { mutableStateOf(false) }
     var showSlotLoginDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -331,6 +332,20 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // 계정 삭제
+        SettingSection(title = "계정") {
+            SettingItem(
+                icon = Icons.Default.DeleteForever,
+                title = "계정 삭제",
+                subtitle = "모든 데이터를 삭제하고 초기화합니다",
+                iconTint = DangerRed,
+                titleColor = DangerRed,
+                onClick = { showDeleteAccountDialog = true }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // 디버그 로그 (임시)
         SettingSection(title = "디버그") {
             SettingItem(
@@ -444,6 +459,29 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
     if (showDebugLog) {
         DebugLogDialog(context = context, onDismiss = { showDebugLog = false })
+    }
+
+    if (showDeleteAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAccountDialog = false },
+            title = { Text("계정 삭제", color = DangerRed) },
+            text = {
+                Text(
+                    "모든 연결, 알람, 슬롯 정보가 삭제되며 복구할 수 없습니다.\n정말 삭제하시겠습니까?",
+                    fontSize = 14.sp, lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteAccountDialog = false
+                    viewModel.deleteAccount()
+                }) { Text("삭제", color = DangerRed, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAccountDialog = false }) { Text("취소") }
+            },
+            containerColor = colors.surfaceVariant
+        )
     }
 }
 
