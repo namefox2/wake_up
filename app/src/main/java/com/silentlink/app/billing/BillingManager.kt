@@ -138,14 +138,25 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
     }
 
     private fun handleSlotPurchase(purchase: Purchase) {
+        val slotIndex = DEVICE_SLOT_PRODUCT_IDS.indexOf(purchase.products.firstOrNull())
+        if (slotIndex < 0) return
+        val newTotalSlots = slotIndex + 1
+
+        if (purchase.isAcknowledged) {
+            // 이미 승인된 구매 — 바로 슬롯 반영
+            _billingState.value = BillingState.SlotPurchased(newTotalSlots)
+            onSlotPurchased?.invoke(newTotalSlots)
+            return
+        }
+
         val params = AcknowledgePurchaseParams.newBuilder()
             .setPurchaseToken(purchase.purchaseToken).build()
         billingClient.acknowledgePurchase(params) { result ->
             if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                val slotIndex = DEVICE_SLOT_PRODUCT_IDS.indexOf(purchase.products.firstOrNull())
-                val newTotalSlots = slotIndex + 1
                 _billingState.value = BillingState.SlotPurchased(newTotalSlots)
                 onSlotPurchased?.invoke(newTotalSlots)
+            } else {
+                _billingState.value = BillingState.Error("슬롯 승인 실패 (${result.responseCode}), 잠시 후 다시 시도해주세요")
             }
         }
     }
