@@ -95,18 +95,12 @@ fun HomeScreen(viewModel: MainViewModel) {
         AlertDialog(
             onDismissRequest = { showSlotLoginDialog = false },
             title = { Text("Google 로그인 필요") },
-            text = {
-                Text(
-                    "슬롯 추가는 Google 계정에 저장됩니다.\n기기를 바꿔도 구매 내역이 유지됩니다.\n\nGoogle 로그인 후 결제를 진행하시겠습니까?",
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
-                )
-            },
+            text = { Text("결제를 위해 Google 로그인이 필요합니다.\n로그인하시겠습니까?", fontSize = 14.sp, lineHeight = 20.sp) },
             confirmButton = {
                 TextButton(onClick = {
                     showSlotLoginDialog = false
                     context.findActivity()?.let { viewModel.requestSlotPurchase(it) }
-                }) { Text("로그인하고 결제", color = AccentBlue) }
+                }) { Text("로그인", color = AccentBlue) }
             },
             dismissButton = {
                 TextButton(onClick = { showSlotLoginDialog = false }) { Text("취소") }
