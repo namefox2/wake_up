@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
@@ -14,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -26,8 +29,11 @@ fun OnboardingScreen(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val colors = MaterialTheme.colorScheme
 
-    var termsAccepted   by remember { mutableStateOf(false) }
-    var privacyAccepted by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var termsAccepted    by remember { mutableStateOf(false) }
+    var privacyAccepted  by remember { mutableStateOf(false) }
+    var ageVerified      by remember { mutableStateOf(false) }
+    var adConsentAccepted by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -102,7 +108,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                     "상대방의 상황(회의, 수업, 운전 등)을 충분히 고려하여 신중하게 사용하세요.",
                     "동의 없이 타인의 기기에 설치하거나 감시 목적으로 사용하면 정보통신망법에 의해 처벌받을 수 있습니다.",
                     "기능 악용으로 발생한 법적 책임은 사용자 본인에게 있습니다.",
-                    "잘못된 사용으로 인해 발생한 피해에 대해 개발자는 어떠한 법적 책임도 지지 않습니다."
+                    "개발자는 고의 또는 중과실이 없는 한 서비스 이용으로 발생한 피해에 대해 책임을 지지 않습니다."
                 ).forEach { notice ->
                     Row(
                         modifier = Modifier.padding(vertical = 3.dp),
@@ -126,21 +132,41 @@ fun OnboardingScreen(viewModel: MainViewModel) {
         AgreementRow(
             checked = termsAccepted,
             onCheckedChange = { termsAccepted = it },
-            label = "이용약관에 동의합니다 (필수)"
+            label = "이용약관에 동의합니다 (필수)",
+            onViewDetail = {
+                context.startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://namefox2.github.io/wake_up/terms.html")))
+            }
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         AgreementRow(
             checked = privacyAccepted,
             onCheckedChange = { privacyAccepted = it },
-            label = "개인정보처리방침에 동의합니다 (필수)"
+            label = "개인정보처리방침에 동의합니다 (필수)",
+            onViewDetail = {
+                context.startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://namefox2.github.io/wake_up/privacy.html")))
+            }
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        AgreementRow(
+            checked = ageVerified,
+            onCheckedChange = { ageVerified = it },
+            label = "만 14세 이상입니다 (필수)"
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        AgreementRow(
+            checked = adConsentAccepted,
+            onCheckedChange = { adConsentAccepted = it },
+            label = "맞춤 광고 제공을 위한 광고 식별자 수집에 동의합니다 (선택)"
         )
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        val canStart = termsAccepted && privacyAccepted
+        val canStart = termsAccepted && privacyAccepted && ageVerified
 
         Button(
-            onClick = { if (canStart) viewModel.onboard(true) },
+            onClick = { if (canStart) viewModel.onboard(adConsentAccepted) },
             enabled = canStart,
             modifier = Modifier
                 .fillMaxWidth()
@@ -167,14 +193,15 @@ fun OnboardingScreen(viewModel: MainViewModel) {
 private fun AgreementRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    label: String
+    label: String,
+    onViewDetail: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 6.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
@@ -185,7 +212,20 @@ private fun AgreementRow(
                 uncheckedColor = MaterialTheme.colorScheme.outline
             )
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            label,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        if (onViewDetail != null) {
+            TextButton(
+                onClick = onViewDetail,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+            ) {
+                Text("전문 보기", fontSize = 12.sp, color = AccentBlue)
+            }
+        }
     }
 }

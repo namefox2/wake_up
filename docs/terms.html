@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이용약관 — 깨워줘</title>
+<style>
+  :root {
+    --bg:#F7F8FC;--surface:#FFFFFF;--text:#191B2A;--muted:#5C6070;
+    --subtle:#9298A8;--accent:#4880EF;--accent-bg:#EEF3FD;--border:#E2E5EF;
+    --tag-bg:#EEF3FD;--tag-text:#2D5EC4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#111318;--surface:#1C1F28;--text:#E8EAF2;--muted:#8B90A4;
+      --subtle:#5A5F72;--accent:#6B9EF5;--accent-bg:#1A2340;--border:#2A2E3C;
+      --tag-bg:#1A2340;--tag-text:#7BAAF8;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+                 "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .site-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+  }
+  .site-header-inner {
+    max-width: 740px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .app-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4D9EFC 0%, #5F7AE9 50%, #9774FC 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .site-header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .site-header span {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  main {
+    max-width: 740px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 36px;
+    align-items: center;
+  }
+  .tag {
+    display: inline-block;
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    padding: 3px 10px;
+    border-radius: 4px;
+  }
+  .meta-date { font-size: 13px; color: var(--subtle); margin-left: auto; }
+  .page-title {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.25;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .page-subtitle { font-size: 15px; color: var(--muted); line-height: 1.6; max-width: 560px; }
+  .divider { height: 1px; background: var(--border); margin: 36px 0; }
+  section { margin-bottom: 44px; }
+  h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 14px;
+    padding-left: 14px;
+    border-left: 3px solid var(--accent);
+    line-height: 1.4;
+  }
+  p { color: var(--muted); margin-bottom: 10px; }
+  p:last-child { margin-bottom: 0; }
+  ul, ol { padding-left: 20px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+  li { line-height: 1.65; }
+  .callout {
+    background: var(--accent-bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 16px 18px;
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.65;
+    margin-top: 14px;
+  }
+  .contact-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px;
+    margin-top: 14px;
+  }
+  .contact-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--subtle);
+    margin-bottom: 4px;
+  }
+  .contact-card .value { font-size: 15px; color: var(--text); font-weight: 500; }
+  .contact-card a { color: var(--accent); text-decoration: none; }
+  .contact-card a:hover { text-decoration: underline; }
+  footer {
+    max-width: 740px;
+    margin: 0 auto;
+    padding: 24px 24px 48px;
+    font-size: 13px;
+    color: var(--subtle);
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <div class="app-icon">🔔</div>
+    <h1>깨워줘<span>이용약관</span></h1>
+  </div>
+</header>
+
+<main>
+  <div class="meta">
+    <span class="tag">최초 시행일 2025년 06월</span>
+    <span class="tag">현행 버전</span>
+    <span class="meta-date">시행일: 2026년 07월 08일</span>
+  </div>
+
+  <h1 class="page-title">이용약관</h1>
+  <p class="page-subtitle">
+    본 약관은 「깨워줘」 앱(이하 "앱" 또는 "서비스")의 이용 조건과 절차를 규정합니다.
+    앱을 설치·사용하면 본 약관에 동의한 것으로 간주됩니다.
+  </p>
+
+  <div class="divider"></div>
+
+  <section>
+    <h2>제1조 (목적)</h2>
+    <p>
+      본 약관은 개인 개발자(이하 "개발자")가 제공하는 「깨워줘」 앱 서비스의 이용과 관련하여
+      개발자와 이용자 간의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>제2조 (서비스 내용)</h2>
+    <p>앱은 다음 기능을 제공합니다.</p>
+    <ul>
+      <li>파트너 기기 간 볼륨·무음 상태 실시간 공유</li>
+      <li>파트너 기기에 원격 알람 전송</li>
+      <li>상대방 동의 기반의 볼륨 원격 제어</li>
+      <li>연결 슬롯 구매를 통한 다중 기기 연결 확장</li>
+    </ul>
+    <div class="callout">
+      서비스의 모든 기능은 상대방이 앱을 설치하고 직접 권한을 허용해야만 작동합니다.
+      상대방의 동의 없이 기능이 실행되지 않습니다.
+    </div>
+  </section>
+
+  <section>
+    <h2>제3조 (이용 계약 체결 및 이용 자격)</h2>
+    <ul>
+      <li>이용자가 앱을 최초 실행하고 본 약관 및 개인정보처리방침에 동의함으로써 이용 계약이 체결됩니다.</li>
+      <li>만 14세 미만인 자는 본 서비스를 이용할 수 없습니다.</li>
+      <li>개발자는 이용자가 만 14세 미만인 것으로 확인될 경우 해당 계정 및 관련 데이터를 즉시 삭제합니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>제4조 (이용자의 의무 및 금지 행위)</h2>
+    <p>이용자는 다음 행위를 해서는 안 됩니다.</p>
+    <ul>
+      <li>상대방의 명시적 동의 없이 타인의 기기에 앱을 설치하거나 기능을 사용하는 행위</li>
+      <li>스토킹·감시·괴롭힘 등 불법적인 목적으로 서비스를 이용하는 행위</li>
+      <li>앱의 소스코드를 역공학하거나 서비스를 무단으로 변형·복제·배포하는 행위</li>
+      <li>허위 정보를 입력하거나 타인의 정보를 도용하는 행위</li>
+      <li>서비스 운영을 방해하는 행위</li>
+    </ul>
+    <p style="margin-top:12px;">
+      금지 행위로 인해 발생하는 민·형사상 책임은 이용자 본인에게 있으며,
+      동의 없이 타인의 기기를 제어하거나 감시할 경우 「정보통신망법」에 의해 처벌받을 수 있습니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>제5조 (유료 서비스 및 결제)</h2>
+    <ul>
+      <li>앱은 연결 슬롯 확장(유료, 비소모성) 및 개발자 응원(유료, 소모성) 인앱 결제를 제공합니다.</li>
+      <li>모든 결제는 Google Play 인앱 결제를 통해 이루어지며, Google Play의 결제 정책이 적용됩니다.</li>
+      <li>결제 금액 및 세부 내용은 앱 내 구매 화면에 표시됩니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>제6조 (청약철회 및 환불)</h2>
+    <p>
+      「전자상거래 등에서의 소비자 보호에 관한 법률」(이하 "전자상거래법") 제17조에 따라
+      이용자는 결제일로부터 7일 이내에 청약철회를 요청할 수 있습니다.
+      다만, 아래의 경우 전자상거래법 제17조 제2항에 따라 청약철회가 제한될 수 있습니다.
+    </p>
+    <ul>
+      <li>
+        <strong>연결 슬롯 구매</strong>: 결제 즉시 슬롯이 활성화되어 이용자가 사용을 개시한 디지털 콘텐츠로,
+        전자상거래법 제17조 제2항 제5호에 따라 청약철회가 제한됩니다.
+        단, 이용자가 사용을 개시하지 않은 경우 또는 콘텐츠가 표시·광고와 다른 경우에는 예외적으로 청약철회가 가능합니다.
+      </li>
+      <li>
+        <strong>개발자 응원(소모성)</strong>: 결제 즉시 소비되는 콘텐츠로 청약철회가 불가합니다.
+      </li>
+    </ul>
+    <p style="margin-top:12px;">
+      환불 요청은 아래 연락처 또는 Google Play 고객센터를 통해 접수할 수 있습니다.
+      Google Play를 통해 결제한 경우 Google Play의 환불 정책도 함께 적용됩니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>제7조 (서비스 변경 및 중단)</h2>
+    <ul>
+      <li>개발자는 서비스 내용을 변경하거나 중단할 수 있으며, 중요 변경 사항은 앱 내 공지 또는 이 페이지를 통해 사전 안내합니다.</li>
+      <li>서비스 중단 시 유료 슬롯 구매 이용자에 대한 환불 처리 방침은 별도로 공지합니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>제8조 (개인정보보호)</h2>
+    <p>
+      이용자의 개인정보 수집·이용·보관에 관한 사항은
+      <a href="https://namefox2.github.io/wake_up/privacy.html" style="color:var(--accent);">개인정보처리방침</a>에 따릅니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>제9조 (면책 조항)</h2>
+    <ul>
+      <li>개발자는 천재지변, 네트워크 장애, 이용자 귀책 사유 등으로 인한 서비스 중단에 대해 고의 또는 중과실이 없는 한 책임을 지지 않습니다.</li>
+      <li>이용자 간 또는 이용자와 제3자 사이의 분쟁에 대해 개발자는 고의 또는 중과실이 없는 한 개입 의무나 책임을 지지 않습니다.</li>
+      <li>이용자가 서비스를 잘못 사용하거나 금지 행위를 함으로써 발생한 피해에 대해 개발자는 고의 또는 중과실이 없는 한 책임을 지지 않습니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>제10조 (약관 변경)</h2>
+    <p>
+      본 약관은 관련 법령 변경 또는 서비스 정책 변경에 따라 개정될 수 있습니다.
+      중요 내용 변경 시 시행일 7일 전에 앱 내 공지 또는 이 페이지를 통해 안내합니다.
+      변경 후 계속 이용하면 변경된 약관에 동의한 것으로 간주됩니다.
+    </p>
+  </section>
+
+  <section>
+    <h2>제11조 (준거법 및 분쟁 해결)</h2>
+    <ul>
+      <li>본 약관은 대한민국 법률에 따라 해석됩니다.</li>
+      <li>서비스 이용과 관련한 분쟁은 우선 당사자 간 협의로 해결하며,
+        협의가 이루어지지 않을 경우 민사소송법상 관할 법원에 제소할 수 있습니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>제12조 (문의)</h2>
+    <div class="contact-card">
+      <div class="label">개발자</div>
+      <div class="value" style="margin-bottom:12px;">개인 개발자 (namefox2)</div>
+      <div class="label">이메일</div>
+      <div class="value"><a href="mailto:namefox2@naver.com">namefox2@naver.com</a></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  © 2026 깨워줘. 본 약관은 대한민국 법률을 기준으로 작성되었습니다.
+</footer>
+
+</body>
+</html>

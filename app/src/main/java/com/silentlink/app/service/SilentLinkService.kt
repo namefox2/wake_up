@@ -364,7 +364,7 @@ class SilentLinkService : Service() {
     private fun createNotificationChannel() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "SilentLink 연결 유지", NotificationManager.IMPORTANCE_LOW).apply {
+            NotificationChannel(CHANNEL_ID, "깨워줘 연결 유지", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "상대방과의 연결을 유지합니다"
             }
         )

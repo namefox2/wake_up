@@ -73,7 +73,7 @@ class AlarmRingService : Service() {
         }
 
         val alarmId = intent.getStringExtra(EXTRA_ALARM_ID) ?: ""
-        val label = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "SilentLink 알람"
+        val label = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "깨워줘 알람"
         shouldSound = intent.getBooleanExtra(EXTRA_ALARM_SOUND, true)
         shouldVibrate = intent.getBooleanExtra(EXTRA_ALARM_VIBRATE, true)
 
@@ -196,7 +196,7 @@ class AlarmRingService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "SilentLink 알람 울림",
+            "깨워줘 알람 울림",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "알람이 울리는 동안 표시됩니다"

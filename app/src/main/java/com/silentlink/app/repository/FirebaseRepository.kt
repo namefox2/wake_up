@@ -322,13 +322,15 @@ class FirebaseRepository {
         appVersionCode: Long,
         androidSdkInt: Int,
         deviceManufacturer: String,
-        deviceModel: String
+        deviceModel: String,
+        adConsentAccepted: Boolean = false
     ) {
         db.getReference("users/$uid/consent").setValue(
             mapOf(
                 "termsAccepted" to true,
                 "privacyAccepted" to true,
-                "consentVersion" to "1",
+                "adConsentAccepted" to adConsentAccepted,
+                "consentVersion" to "2",
                 "timestamp" to System.currentTimeMillis(),
                 "appVersion" to appVersion,
                 "appVersionCode" to appVersionCode,
@@ -340,7 +342,10 @@ class FirebaseRepository {
 
     suspend fun redeemCoupon(myUid: String, code: String): CouponResult {
         val upper = code.trim().uppercase()
-        val freeSlots = VALID_COUPONS[upper] ?: return CouponResult.INVALID
+        // 쿠폰 유효성을 Firebase에서 검증 (서버 사이드 관리)
+        val couponRef = db.getReference("coupons/$upper/slots")
+        val freeSlots = couponRef.get().await().getValue(Int::class.java)
+            ?: return CouponResult.INVALID
         val usedRef = db.getReference("users/$myUid/usedCoupons/$upper")
         if (usedRef.get().await().exists()) return CouponResult.ALREADY_USED
         val current = db.getReference("users/$myUid/purchasedSlots").get().await()
@@ -358,5 +363,3 @@ class FirebaseRepository {
 enum class ConnectResult { SUCCESS, NOT_FOUND, ALREADY_CONNECTED, SLOT_LIMIT_REACHED }
 enum class LinkResult { LINKED, RESTORED, FAILED }
 enum class CouponResult { SUCCESS, INVALID, ALREADY_USED, MAX_REACHED }
-
-private val VALID_COUPONS = mapOf("SILENT" to 1)  // 코드 → 지급 슬롯 수

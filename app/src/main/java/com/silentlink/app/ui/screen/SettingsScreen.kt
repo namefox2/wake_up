@@ -5,6 +5,7 @@ import android.app.AlarmManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
@@ -97,7 +98,6 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
-    var showPrivacyDialog by remember { mutableStateOf(false) }
     var showCouponDialog by remember { mutableStateOf(false) }
     var showDebugLog by remember { mutableStateOf(false) }
 
@@ -327,14 +327,20 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 icon = Icons.Default.Article,
                 title = "이용약관",
                 iconTint = colors.onSurface.copy(alpha = 0.6f),
-                onClick = { showPrivacyDialog = true }
+                onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://namefox2.github.io/wake_up/terms.html")))
+                }
             )
             HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
             SettingItem(
                 icon = Icons.Default.PrivacyTip,
                 title = "개인정보처리방침",
                 iconTint = colors.onSurface.copy(alpha = 0.6f),
-                onClick = { showPrivacyDialog = true }
+                onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://namefox2.github.io/wake_up/privacy.html")))
+                }
             )
             HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
             SettingItem(
@@ -389,7 +395,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 Spacer(modifier = Modifier.height(8.dp))
                 listOf(
                     "상대방의 상황(회의, 수업, 운전 등)을 충분히 고려하여 신중하게 사용하세요.",
-                    "잘못된 사용으로 인해 발생한 피해에 대해 개발자는 어떠한 법적 책임도 지지 않습니다."
+                    "개발자는 고의 또는 중과실이 없는 한 서비스 이용으로 발생한 피해에 대해 책임을 지지 않습니다."
                 ).forEach { notice ->
                     Row(
                         modifier = Modifier.padding(vertical = 2.dp),
@@ -441,10 +447,6 @@ fun SettingsScreen(viewModel: MainViewModel) {
             },
             onDismiss = { showThemeDialog = false }
         )
-    }
-
-    if (showPrivacyDialog) {
-        PrivacyDialog(onDismiss = { showPrivacyDialog = false })
     }
 
     if (showCouponDialog) {
@@ -745,58 +747,3 @@ private fun DebugLogDialog(context: Context, onDismiss: () -> Unit) {
     }
 }
 
-@Composable
-private fun PrivacyDialog(onDismiss: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = colors.surface),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Text("이용약관 및 개인정보처리방침", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = colors.onBackground)
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = """
-【이용약관】
-
-제1조 (목적)
-본 약관은 SilentLink 앱 서비스 이용에 관한 조건과 절차를 규정합니다.
-
-제2조 (서비스 이용 조건)
-• 상대방의 명시적 동의 없이 기능이 작동하지 않습니다.
-• 동의 없이 타인의 기기에 설치하는 행위는 금지됩니다.
-• 스토킹·감시 목적의 사용은 정보통신망법에 의해 처벌받을 수 있습니다.
-
-제3조 (면책 조항)
-앱 기능 악용으로 발생한 모든 민·형사상 책임은 사용자 본인에게 있으며, 개발자는 법적 책임을 지지 않습니다.
-
-【개인정보처리방침】
-
-수집 항목: Firebase 익명 인증 UID, 기기 상태 정보
-수집 목적: 기기 간 실시간 상태 동기화
-보유 기간: 연결 해제 시 즉시 삭제
-제3자 제공: 없음
-                    """.trimIndent(),
-                    fontSize = 13.sp,
-                    color = colors.onSurface,
-                    lineHeight = 20.sp
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End),
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("확인")
-                }
-            }
-        }
-    }
-}

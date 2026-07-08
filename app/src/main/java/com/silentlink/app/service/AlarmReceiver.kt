@@ -17,7 +17,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getStringExtra(EXTRA_ALARM_ID) ?: return
-        val label = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "SilentLink 알람"
+        val label = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: "깨워줘 알람"
         val alarmJson = intent.getStringExtra(EXTRA_ALARM_JSON)
         val alarm = alarmJson?.let { runCatching { Gson().fromJson(it, RemoteAlarm::class.java) }.getOrNull() }
 

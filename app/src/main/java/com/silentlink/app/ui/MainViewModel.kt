@@ -168,8 +168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun onboard(termsAccepted: Boolean) {
-        if (!termsAccepted) return
+    fun onboard(adConsentAccepted: Boolean) {
         viewModelScope.launch {
             try {
                 val uid  = repository.signInAnonymously()
@@ -188,7 +187,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         appVersionCode = versionCode,
                         androidSdkInt = android.os.Build.VERSION.SDK_INT,
                         deviceManufacturer = android.os.Build.MANUFACTURER,
-                        deviceModel = android.os.Build.MODEL
+                        deviceModel = android.os.Build.MODEL,
+                        adConsentAccepted = adConsentAccepted
                     )
                 }
                 getApplication<Application>().appDataStore.edit { prefs ->

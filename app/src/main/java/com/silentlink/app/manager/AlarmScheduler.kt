@@ -20,7 +20,7 @@ class AlarmScheduler(private val context: Context) {
 
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarm.id)
-            putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, alarm.label.ifEmpty { "SilentLink 알람" })
+            putExtra(AlarmReceiver.EXTRA_ALARM_LABEL, alarm.label.ifEmpty { "깨워줘 알람" })
             putExtra(AlarmReceiver.EXTRA_ALARM_JSON, Gson().toJson(alarm))
         }
         val pending = PendingIntent.getBroadcast(
