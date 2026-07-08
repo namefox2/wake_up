@@ -5,8 +5,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -129,6 +131,18 @@ fun MainNavigation(viewModel: MainViewModel) {
                     restoreState = true
                 }
             }
+        }
+    }
+
+    // Google Sign-In launcher (앱 전역 등록 — 어느 화면에서 요청해도 결과 수신)
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onGoogleSignInResult(result.data)
+    }
+    LaunchedEffect(Unit) {
+        viewModel.googleSignInRequest.collect { intent ->
+            googleSignInLauncher.launch(intent)
         }
     }
 

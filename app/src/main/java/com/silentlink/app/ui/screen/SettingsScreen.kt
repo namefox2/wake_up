@@ -8,8 +8,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -95,17 +93,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Google Sign-In launcher
-    val googleSignInLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        viewModel.onGoogleSignInResult(result.data)
-    }
-    LaunchedEffect(Unit) {
-        viewModel.googleSignInRequest.collect { intent ->
-            googleSignInLauncher.launch(intent)
-        }
-    }
+
 
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
