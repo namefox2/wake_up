@@ -81,6 +81,7 @@ fun HomeScreen(viewModel: MainViewModel) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    var showSlotLoginDialog by remember { mutableStateOf(false) }
     var showPermDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         viewModel.showPermissionGuide.collect {
@@ -88,6 +89,29 @@ fun HomeScreen(viewModel: MainViewModel) {
             canSetMute = audioManager.canSetMute()
             if (!canWriteSettings || !canSetMute) showPermDialog = true
         }
+    }
+
+    if (showSlotLoginDialog) {
+        AlertDialog(
+            onDismissRequest = { showSlotLoginDialog = false },
+            title = { Text("Google 로그인 필요") },
+            text = {
+                Text(
+                    "슬롯 추가는 Google 계정에 저장됩니다.\n기기를 바꿔도 구매 내역이 유지됩니다.\n\nGoogle 로그인 후 결제를 진행하시겠습니까?",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSlotLoginDialog = false
+                    context.findActivity()?.let { viewModel.requestSlotPurchase(it) }
+                }) { Text("로그인하고 결제", color = AccentBlue) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSlotLoginDialog = false }) { Text("취소") }
+            }
+        )
     }
 
     if (showPermDialog) {
@@ -256,7 +280,13 @@ fun HomeScreen(viewModel: MainViewModel) {
                         onRemoveController = { uid -> viewModel.removeController(uid) },
                         onSetDeviceName = { uid, name -> viewModel.setDeviceName(uid, name) },
                         onConnect = { code -> viewModel.connectWithPartnerCode(code) },
-                        onAddSlot = { context.findActivity()?.let { viewModel.requestSlotPurchase(it) } },
+                        onAddSlot = {
+                            if (uiState.googleEmail == null) {
+                                showSlotLoginDialog = true
+                            } else {
+                                context.findActivity()?.let { viewModel.requestSlotPurchase(it) }
+                            }
+                        },
                         onGrantPermission = {
                             context.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                                 data = Uri.parse("package:${context.packageName}")
