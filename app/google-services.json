@@ -15,6 +15,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "687417146139-74kvmb6o0cve2n0oj8lu0dmknefh9cbo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.silentlink.app",
+            "certificate_hash": "abee5f5b3cce3b129d2425e0f21734d485239b8e"
+          }
+        },
+        {
           "client_id": "687417146139-8t9ab8643rjnuuiqqonmp7cp7nibsd6g.apps.googleusercontent.com",
           "client_type": 3
         }
