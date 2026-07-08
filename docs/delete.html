@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>계정 삭제 — 깨워줘</title>
+<style>
+  :root {
+    --bg:#F7F8FC;--surface:#FFFFFF;--text:#191B2A;--muted:#5C6070;
+    --subtle:#9298A8;--accent:#4880EF;--accent-bg:#EEF3FD;--border:#E2E5EF;
+    --danger:#D93F3F;--danger-bg:#FEF0F0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#111318;--surface:#1C1F28;--text:#E8EAF2;--muted:#8B90A4;
+      --subtle:#5A5F72;--accent:#6B9EF5;--accent-bg:#1A2340;--border:#2A2E3C;
+      --danger:#F07070;--danger-bg:#2A1A1A;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+                 "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .site-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .app-name { font-size: 17px; font-weight: 700; color: var(--text); }
+  .app-sub  { font-size: 12px; color: var(--subtle); margin-top: 1px; }
+  .container { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 26px; font-weight: 800; margin-bottom: 8px; color: var(--text); }
+  .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 36px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .steps li:last-child { border-bottom: none; }
+  .step-num {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .step-text { font-size: 14px; color: var(--muted); padding-top: 4px; }
+  .step-text strong { color: var(--text); }
+  .warning-card {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .warning-card h2 { font-size: 15px; font-weight: 700; color: var(--danger); margin-bottom: 12px; }
+  .warning-card ul { padding-left: 18px; color: var(--muted); font-size: 14px; }
+  .warning-card ul li { margin-bottom: 6px; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .data-table th, .data-table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table th { color: var(--subtle); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .data-table td { color: var(--muted); }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+  .contact { font-size: 14px; color: var(--muted); }
+  .contact a { color: var(--accent); }
+  footer { text-align: center; font-size: 12px; color: var(--subtle); padding-top: 40px; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div>
+    <div class="app-name">깨워줘</div>
+    <div class="app-sub">개발자: namefox2</div>
+  </div>
+</header>
+
+<div class="container">
+  <h1>계정 삭제</h1>
+  <p class="subtitle">최종 수정일: 2025년 1월</p>
+
+  <div class="card">
+    <h2>앱 내에서 계정 삭제하기</h2>
+    <ol class="steps">
+      <li>
+        <div class="step-num">1</div>
+        <div class="step-text"><strong>앱을 실행</strong>하고 하단의 <strong>설정</strong> 탭을 탭합니다.</div>
+      </li>
+      <li>
+        <div class="step-num">2</div>
+        <div class="step-text"><strong>계정</strong> 섹션에서 <strong>계정 삭제</strong>를 탭합니다.</div>
+      </li>
+      <li>
+        <div class="step-num">3</div>
+        <div class="step-text">확인 다이얼로그에서 <strong>삭제</strong>를 탭합니다.</div>
+      </li>
+    </ol>
+  </div>
+
+  <div class="warning-card">
+    <h2>⚠ 삭제 전 확인하세요</h2>
+    <ul>
+      <li>계정 삭제 시 모든 연결, 알람, 슬롯 정보가 즉시 삭제됩니다.</li>
+      <li>삭제된 데이터는 복구할 수 없습니다.</li>
+      <li>유료 슬롯 구매 이력도 함께 삭제되며 환불되지 않습니다.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>삭제되는 데이터</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>데이터 유형</th>
+          <th>보관 기간</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Firebase 익명 인증 계정</td>
+          <td><span class="badge">즉시 삭제</span></td>
+        </tr>
+        <tr>
+          <td>기기 정보 (초대 코드, 연결 상태)</td>
+          <td><span class="badge">즉시 삭제</span></td>
+        </tr>
+        <tr>
+          <td>파트너 연결 정보</td>
+          <td><span class="badge">즉시 삭제</span></td>
+        </tr>
+        <tr>
+          <td>알람 데이터</td>
+          <td><span class="badge">즉시 삭제</span></td>
+        </tr>
+        <tr>
+          <td>슬롯 구매 정보</td>
+          <td><span class="badge">즉시 삭제</span></td>
+        </tr>
+        <tr>
+          <td>동의 기록</td>
+          <td><span class="badge">즉시 삭제</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>문의</h2>
+    <p class="contact">계정 삭제에 문제가 있거나 앱에 접근할 수 없는 경우 이메일로 문의해 주세요.<br>
+    <a href="mailto:namefox2@naver.com">namefox2@naver.com</a></p>
+  </div>
+</div>
+
+<footer>© 2025 깨워줘 · namefox2</footer>
+</body>
+</html>
