@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -38,6 +37,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.silentlink.app.ads.BannerAdView
+import com.silentlink.app.ui.util.findActivity
 import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.model.PartnerState
 import com.silentlink.app.model.UserActivity
@@ -46,15 +46,6 @@ import com.silentlink.app.ui.MainViewModel
 import com.silentlink.app.ui.theme.AccentBlue
 import com.silentlink.app.ui.theme.DangerRed
 import com.silentlink.app.ui.theme.SuccessGreen
-
-private fun Context.findActivity(): Activity? {
-    var ctx = this
-    while (ctx is ContextWrapper) {
-        if (ctx is Activity) return ctx
-        ctx = ctx.baseContext
-    }
-    return null
-}
 
 @Composable
 fun HomeScreen(viewModel: MainViewModel) {
@@ -448,7 +439,6 @@ private fun PartnerListTab(
     // 나를 등록한 기기 섹션
     if (controllers.isNotEmpty()) {
         Spacer(modifier = Modifier.height(20.dp))
-        val colors = MaterialTheme.colorScheme
         Text(
             "나를 제어하는 기기",
             fontSize = 13.sp, color = colors.onSurface.copy(alpha = 0.6f)

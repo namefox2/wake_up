@@ -3,7 +3,6 @@ package com.silentlink.app.ui.screen
 import android.app.Activity
 import android.app.AlarmManager
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -39,6 +38,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.silentlink.app.service.ServiceLogger
+import com.silentlink.app.ui.util.findActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,15 +49,6 @@ import com.silentlink.app.ui.theme.AccentBlue
 import com.silentlink.app.ui.theme.DangerRed
 import com.silentlink.app.ui.theme.SuccessGreen
 import com.silentlink.app.ui.theme.toSilentLinkColors
-
-private fun Context.findActivity(): Activity? {
-    var ctx = this
-    while (ctx is ContextWrapper) {
-        if (ctx is Activity) return ctx
-        ctx = ctx.baseContext
-    }
-    return null
-}
 
 @Composable
 fun SettingsScreen(viewModel: MainViewModel) {
