@@ -483,10 +483,17 @@ fun SettingsScreen(viewModel: MainViewModel) {
             onDismissRequest = { showDeleteAccountDialog = false },
             title = { Text("계정 삭제", color = DangerRed) },
             text = {
-                Text(
-                    "모든 연결, 알람, 슬롯 정보가 삭제되며 복구할 수 없습니다.\n정말 삭제하시겠습니까?",
-                    fontSize = 14.sp, lineHeight = 20.sp
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "모든 연결, 알람 정보가 삭제되며 복구할 수 없습니다.\n정말 삭제하시겠습니까?",
+                        fontSize = 14.sp, lineHeight = 20.sp
+                    )
+                    Text(
+                        "슬롯 구매 내역은 같은 Google 계정으로 재로그인하면 자동으로 복원됩니다.",
+                        fontSize = 12.sp, lineHeight = 18.sp,
+                        color = colors.onSurface.copy(alpha = 0.6f)
+                    )
+                }
             },
             confirmButton = {
                 TextButton(onClick = {

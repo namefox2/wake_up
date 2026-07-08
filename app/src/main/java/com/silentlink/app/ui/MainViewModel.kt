@@ -101,13 +101,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch { loadPersistedState() }
-        billingManager.connect { newSlots ->
-            viewModelScope.launch {
-                val myUid = _uiState.value.myUid.ifEmpty { return@launch }
-                repository.setPurchasedSlots(myUid, newSlots)
-                _uiState.value = _uiState.value.copy(purchasedSlots = newSlots)
+        billingManager.connect(
+            onSlotPurchased = { newSlots ->
+                viewModelScope.launch {
+                    val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+                    repository.setPurchasedSlots(myUid, newSlots)
+                    _uiState.value = _uiState.value.copy(purchasedSlots = newSlots)
+                }
+            },
+            onBillingReady = { playSlots ->
+                // Play Store가 준비되면 Firebase와 슬롯 수를 맞춤 (계정 삭제 후 복원 대응)
+                viewModelScope.launch {
+                    val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+                    val firebaseSlots = _uiState.value.purchasedSlots
+                    if (playSlots > firebaseSlots) {
+                        repository.setPurchasedSlots(myUid, playSlots)
+                        _uiState.value = _uiState.value.copy(purchasedSlots = playSlots)
+                    }
+                }
             }
-        }
+        )
         viewModelScope.launch {
             billingManager.billingState.collect { state ->
                 if (state is BillingManager.BillingState.Error) {

@@ -51,12 +51,13 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
         data class Error(val message: String) : BillingState()
     }
 
-    fun connect(onSlotPurchased: (Int) -> Unit = {}) {
+    fun connect(onSlotPurchased: (Int) -> Unit = {}, onBillingReady: (ownedSlots: Int) -> Unit = {}) {
         this.onSlotPurchased = onSlotPurchased
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
                     queryAllProducts()
+                    queryOwnedSlots { onBillingReady(it) }
                 }
             }
             override fun onBillingServiceDisconnected() {}
