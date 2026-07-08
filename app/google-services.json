@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "687417146139",
+    "firebase_url": "https://silentlink-app-default-rtdb.firebaseio.com",
     "project_id": "silentlink-app",
     "storage_bucket": "silentlink-app.firebasestorage.app"
   },
@@ -12,7 +13,12 @@
           "package_name": "com.silentlink.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "687417146139-8t9ab8643rjnuuiqqonmp7cp7nibsd6g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCTtw3LhEx8QFp-E7m1oUojM3VVn0ndACg"
@@ -20,7 +26,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "687417146139-8t9ab8643rjnuuiqqonmp7cp7nibsd6g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
