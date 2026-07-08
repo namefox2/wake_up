@@ -494,7 +494,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             launchSlotBilling(activity)
         } else {
             viewModelScope.launch {
-                _googleSignInRequest.emit(googleSignInManager.getSignInIntent())
+                try {
+                    _googleSignInRequest.emit(googleSignInManager.getSignInIntent())
+                } catch (e: IllegalStateException) {
+                    _uiState.value = _uiState.value.copy(errorMessage = "Google 로그인 설정이 완료되지 않았습니다.")
+                }
             }
         }
     }

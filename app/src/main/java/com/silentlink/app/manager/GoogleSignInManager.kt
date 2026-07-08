@@ -15,6 +15,8 @@ class GoogleSignInManager(private val context: Context) {
         } catch (_: Exception) { "" }
     }
 
+    val isConfigured: Boolean get() = webClientId.isNotEmpty()
+
     private val client by lazy {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(webClientId)
@@ -23,7 +25,10 @@ class GoogleSignInManager(private val context: Context) {
         GoogleSignIn.getClient(context, gso)
     }
 
-    fun getSignInIntent(): Intent = client.signInIntent
+    fun getSignInIntent(): Intent {
+        check(webClientId.isNotEmpty()) { "Google OAuth 클라이언트가 설정되지 않았습니다." }
+        return client.signInIntent
+    }
 
     fun extractIdToken(data: Intent?): String? = try {
         GoogleSignIn.getSignedInAccountFromIntent(data)

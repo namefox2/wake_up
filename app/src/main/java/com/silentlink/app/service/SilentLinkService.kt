@@ -92,10 +92,13 @@ class SilentLinkService : Service() {
         createNotificationChannel()
         ServiceLogger.log(this, "SERVICE", "onCreate [C] 채널 생성완료")
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
-            } else {
-                startForeground(NOTIFICATION_ID, buildNotification())
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
+                    startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
+                    startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                else ->
+                    startForeground(NOTIFICATION_ID, buildNotification())
             }
             ServiceLogger.log(this, "SERVICE", "onCreate [D] startForeground 성공")
         } catch (e: Exception) {

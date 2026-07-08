@@ -81,10 +81,13 @@ class AlarmRingService : Service() {
         // Android 8+ foreground-service contract (startForegroundService was used)
         createNotificationChannel()
         val notification = buildNotification(alarmId, label)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            else ->
+                startForeground(NOTIFICATION_ID, notification)
         }
 
         // 방해금지 시간이면 즉시 해제 (startForeground 후에 체크)
