@@ -166,8 +166,8 @@ fun OnboardingScreen(viewModel: MainViewModel) {
         val canStart = termsAccepted && privacyAccepted && ageVerified
 
         Button(
-            onClick = { if (canStart) viewModel.onboard(adConsentAccepted) },
-            enabled = canStart,
+            onClick = { if (canStart && !uiState.isOnboarding) viewModel.onboard(adConsentAccepted) },
+            enabled = canStart && !uiState.isOnboarding,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
@@ -177,7 +177,17 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                 disabledContainerColor = AccentBlue.copy(alpha = 0.3f)
             )
         ) {
-            Text("시작하기", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            if (uiState.isOnboarding) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = androidx.compose.ui.graphics.Color.White,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text("저장 중...", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            } else {
+                Text("시작하기", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
 
         uiState.errorMessage?.let { error ->

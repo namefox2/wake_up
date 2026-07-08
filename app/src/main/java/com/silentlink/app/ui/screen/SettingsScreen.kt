@@ -461,6 +461,24 @@ fun SettingsScreen(viewModel: MainViewModel) {
         DebugLogDialog(context = context, onDismiss = { showDebugLog = false })
     }
 
+    if (uiState.isDeletingAccount) {
+        Dialog(onDismissRequest = {}) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant)
+            ) {
+                Row(
+                    modifier = Modifier.padding(24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = DangerRed, strokeWidth = 2.dp)
+                    Text("계정 삭제 진행 중...", fontSize = 15.sp, color = colors.onBackground)
+                }
+            }
+        }
+    }
+
     if (showDeleteAccountDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteAccountDialog = false },

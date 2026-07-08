@@ -173,6 +173,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onboard(adConsentAccepted: Boolean) {
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isOnboarding = true, errorMessage = null)
             try {
                 val uid  = repository.signInAnonymously()
                 val code = repository.generateInviteCode()
@@ -210,7 +211,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 listenToControllers(uid)
                 listenToMyPartnerIds(uid)
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(errorMessage = "초기화 실패: ${e.message}")
+                _uiState.value = _uiState.value.copy(isOnboarding = false, errorMessage = "초기화 실패: ${e.message}")
             }
         }
     }
@@ -595,6 +596,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             val myCode = _uiState.value.myCode
+            _uiState.value = _uiState.value.copy(isDeletingAccount = true)
             try {
                 partnerListenerJobs.values.forEach { jobs -> jobs.forEach { it.cancel() } }
                 partnerListenerJobs.clear()
@@ -606,7 +608,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = SilentLinkUiState()
                 _isOnboarded.value = false
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(errorMessage = "계정 삭제 실패: ${e.message}")
+                _uiState.value = _uiState.value.copy(isDeletingAccount = false, errorMessage = "계정 삭제 실패: ${e.message}")
             }
         }
     }
@@ -646,7 +648,9 @@ data class SilentLinkUiState(
     val deviceNames: Map<String, String> = emptyMap(),
     val couponMessage: String? = null,
     val couponSuccess: Boolean = false,
-    val adConsentAccepted: Boolean = false
+    val adConsentAccepted: Boolean = false,
+    val isOnboarding: Boolean = false,
+    val isDeletingAccount: Boolean = false
 ) {
     val isConnected: Boolean get() = partners.isNotEmpty()
     val maxDevices: Int get() = 1 + purchasedSlots

@@ -352,8 +352,9 @@ class FirebaseRepository {
         }
         // 2. 기기 데이터 삭제
         runCatching { db.getReference("devices/$uid").removeValue().await() }
-        // 3. 유저 데이터 삭제
-        runCatching { db.getReference("users/$uid").removeValue().await() }
+        // 3. 유저 데이터 삭제 (동의 기록은 법적 증거로 보존)
+        runCatching { db.getReference("users/$uid/purchasedSlots").removeValue().await() }
+        runCatching { db.getReference("users/$uid/usedCoupons").removeValue().await() }
         // 4. 초대 코드 삭제
         if (inviteCode.isNotEmpty()) {
             runCatching { db.getReference("codes/$inviteCode").removeValue().await() }
