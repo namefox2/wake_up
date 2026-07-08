@@ -108,6 +108,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(purchasedSlots = newSlots)
             }
         }
+        viewModelScope.launch {
+            billingManager.billingState.collect { state ->
+                if (state is BillingManager.BillingState.Error) {
+                    _uiState.value = _uiState.value.copy(errorMessage = state.message)
+                }
+            }
+        }
     }
 
     private suspend fun loadPersistedState() {
