@@ -374,7 +374,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 Spacer(modifier = Modifier.height(8.dp))
                 listOf(
                     "상대방의 상황(회의, 수업, 운전 등)을 충분히 고려하여 신중하게 사용하세요.",
-                    "개발자는 고의 또는 중과실이 없는 한 서비스 이용으로 발생한 피해에 대해 책임을 지지 않습니다."
+                    "서비스 이용으로 발생한 피해에 대해 개발자는 책임을 지지 않으며, 고의 또는 중과실이 있는 경우에만 예외로 합니다."
                 ).forEach { notice ->
                     Row(
                         modifier = Modifier.padding(vertical = 2.dp),
