@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,7 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -220,7 +222,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
         // 권한 설정
         SettingSection(title = "권한 설정") {
             SettingItem(
-                icon = Icons.Default.VolumeUp,
+                icon = Icons.AutoMirrored.Filled.VolumeUp,
                 title = "시스템 설정 변경 권한",
                 subtitle = if (canWriteSettings) "허용됨" else "볼륨 제어에 필요 — 탭하여 허용",
                 iconTint = if (canWriteSettings) SuccessGreen else AccentBlue,
@@ -286,7 +288,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
         // 기타
         SettingSection(title = "기타") {
             SettingItem(
-                icon = Icons.Default.Article,
+                icon = Icons.AutoMirrored.Filled.Article,
                 title = "이용약관",
                 iconTint = colors.onSurface.copy(alpha = 0.6f),
                 onClick = {
@@ -760,14 +762,14 @@ private fun DebugLogDialog(context: Context, onDismiss: () -> Unit) {
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(width = 1.dp)
                     ) { Text("지우기", fontSize = 13.sp) }
                     OutlinedButton(
                         onClick = { clipboard.setText(AnnotatedString(logText)) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(width = 1.dp)
                     ) { Text("복사", fontSize = 13.sp) }
                     Button(
                         onClick = onDismiss,
