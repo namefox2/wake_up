@@ -177,23 +177,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val uid  = repository.signInAnonymously()
                 val code = repository.generateInviteCode()
                 repository.registerDevice(uid, code)
-                // 동의 기록을 Firebase에 저장 (법적 근거 확보)
-                runCatching {
-                    val ctx = getApplication<Application>()
-                    val pm = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
-                    val versionName = pm.versionName ?: "unknown"
-                    val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P)
-                        pm.longVersionCode else pm.versionCode.toLong()
-                    repository.recordConsent(
-                        uid = uid,
-                        appVersion = versionName,
-                        appVersionCode = versionCode,
-                        androidSdkInt = android.os.Build.VERSION.SDK_INT,
-                        deviceManufacturer = android.os.Build.MANUFACTURER,
-                        deviceModel = android.os.Build.MODEL,
-                        adConsentAccepted = adConsentAccepted
-                    )
-                }
                 getApplication<Application>().appDataStore.edit { prefs ->
                     prefs[KEY_ONBOARDED]  = true
                     prefs[KEY_MY_UID]     = uid
@@ -203,6 +186,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(myUid = uid, myCode = code, adConsentAccepted = adConsentAccepted)
                 _isOnboarded.value = true
                 quickPrefs.edit().putBoolean("onboarded", true).apply()
+                // 동의 기록은 화면 전환 후 백그라운드에서 처리 (네트워크 지연이 UX에 영향 없도록)
+                viewModelScope.launch {
+                    runCatching {
+                        val ctx = getApplication<Application>()
+                        val pm = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+                        val versionName = pm.versionName ?: "unknown"
+                        val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P)
+                            pm.longVersionCode else pm.versionCode.toLong()
+                        repository.recordConsent(
+                            uid = uid,
+                            appVersion = versionName,
+                            appVersionCode = versionCode,
+                            androidSdkInt = android.os.Build.VERSION.SDK_INT,
+                            deviceManufacturer = android.os.Build.MANUFACTURER,
+                            deviceModel = android.os.Build.MODEL,
+                            adConsentAccepted = adConsentAccepted
+                        )
+                    }
+                }
                 SilentLinkService.start(getApplication())
                 listenToMyAlarms(uid)
                 listenToControllers(uid)

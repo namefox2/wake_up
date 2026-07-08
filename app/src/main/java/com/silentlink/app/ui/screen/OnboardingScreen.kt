@@ -158,7 +158,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
         AgreementRow(
             checked = adConsentAccepted,
             onCheckedChange = { adConsentAccepted = it },
-            label = "맞춤 광고 제공을 위한 광고 식별자 수집에 동의합니다 (선택)"
+            label = "맞춤 광고를 위한 광고 식별자 수집에 동의합니다 (선택, 미동의 시 일반 광고 표시)"
         )
 
         Spacer(modifier = Modifier.height(28.dp))
