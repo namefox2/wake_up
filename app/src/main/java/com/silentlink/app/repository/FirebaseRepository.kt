@@ -132,7 +132,7 @@ class FirebaseRepository {
             override fun onDataChange(snapshot: DataSnapshot) {
                 trySend(snapshot.children.mapNotNull { it.key }.filter { it.isNotEmpty() })
             }
-            override fun onCancelled(error: DatabaseError) {}
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
@@ -144,7 +144,7 @@ class FirebaseRepository {
             override fun onDataChange(snapshot: DataSnapshot) {
                 trySend(snapshot.children.mapNotNull { it.key }.filter { it.isNotEmpty() })
             }
-            override fun onCancelled(error: DatabaseError) {}
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
@@ -178,7 +178,7 @@ class FirebaseRepository {
         val ref = db.getReference("devices/$partnerUid/status")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) { trySend(snapshot.toDeviceStatus()) }
-            override fun onCancelled(error: DatabaseError) {}
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
@@ -213,7 +213,7 @@ class FirebaseRepository {
             override fun onDataChange(snapshot: DataSnapshot) {
                 (snapshot.value as? Map<String, Any>)?.let { trySend(it) }
             }
-            override fun onCancelled(error: DatabaseError) {}
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
@@ -246,7 +246,7 @@ class FirebaseRepository {
             override fun onDataChange(snapshot: DataSnapshot) {
                 trySend(snapshot.getValue(Boolean::class.java) ?: true)
             }
-            override fun onCancelled(error: DatabaseError) {}
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
@@ -286,9 +286,9 @@ class FirebaseRepository {
                         val daysNode = child.child("days")
                         val days: Set<Int> = when {
                             daysNode.getValue(String::class.java) != null ->
-                                daysNode.getValue(String::class.java)!!
-                                    .split(",").filter { it.isNotBlank() }
-                                    .mapNotNull { it.trim().toIntOrNull() }.toSet()
+                                daysNode.getValue(String::class.java)
+                                    ?.split(",")?.filter { it.isNotBlank() }
+                                    ?.mapNotNull { it.trim().toIntOrNull() }?.toSet() ?: emptySet()
                             else -> {
                                 @Suppress("UNCHECKED_CAST")
                                 (daysNode.getValue(List::class.java) as? List<*> ?: emptyList<Any>())
@@ -310,7 +310,7 @@ class FirebaseRepository {
                 }
                 trySend(alarms)
             }
-            override fun onCancelled(error: DatabaseError) {}
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
         }
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
@@ -383,6 +383,6 @@ class FirebaseRepository {
     }
 }
 
-enum class ConnectResult { SUCCESS, NOT_FOUND, ALREADY_CONNECTED, SLOT_LIMIT_REACHED }
+enum class ConnectResult { SUCCESS, NOT_FOUND, ALREADY_CONNECTED }
 enum class LinkResult { LINKED, RESTORED, FAILED }
 enum class CouponResult { SUCCESS, INVALID, ALREADY_USED, MAX_REACHED }

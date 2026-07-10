@@ -61,18 +61,19 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val pm = remember { context.getSystemService(PowerManager::class.java) }
     val alarmManager = remember { context.getSystemService(AlarmManager::class.java) }
 
-    fun checkPerms() = Triple(
-        audioControlManager.canWriteSettings(),
-        audioControlManager.canSetMute(),
-        pm.isIgnoringBatteryOptimizations(context.packageName)
+    fun checkPerms() = Pair(
+        Triple(
+            audioControlManager.canWriteSettings(),
+            audioControlManager.canSetMute(),
+            pm.isIgnoringBatteryOptimizations(context.packageName)
+        ),
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) alarmManager.canScheduleExactAlarms() else true
     )
     var perms by remember { mutableStateOf(checkPerms()) }
-    val canWriteSettings = perms.first
-    val canSetMute = perms.second
-    val batteryIgnored = perms.third
-    val canExactAlarm = remember(Build.VERSION.SDK_INT) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) alarmManager.canScheduleExactAlarms() else true
-    }
+    val canWriteSettings = perms.first.first
+    val canSetMute = perms.first.second
+    val batteryIgnored = perms.first.third
+    val canExactAlarm = perms.second
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {

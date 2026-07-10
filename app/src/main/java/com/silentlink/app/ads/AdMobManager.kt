@@ -36,8 +36,10 @@ fun BannerAdView(adConsentAccepted: Boolean = false) {
             AdView(context).apply {
                 setAdSize(AdSize.BANNER)
                 adUnitId = AdMobManager.BANNER_AD_UNIT_ID
-                loadAd(AdMobManager.buildAdRequest(adConsentAccepted))
             }
+        },
+        update = { adView ->
+            adView.loadAd(AdMobManager.buildAdRequest(adConsentAccepted))
         }
     )
 }

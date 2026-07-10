@@ -392,7 +392,7 @@ private fun DayChip(label: String, active: Boolean) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AlarmEditDialog(
+private fun AlarmEditDialog(
     alarm: RemoteAlarm?,
     onDismiss: () -> Unit,
     onSave: (RemoteAlarm) -> Unit

@@ -38,24 +38,6 @@ enum class VolumeLevel(val label: String, val icon: String, val value: Int) {
     SOUND("소리", "🔊", 60)
 }
 
-data class DndSchedule(
-    val id: String = "",
-    val name: String = "",
-    val startHour: Int = 22,
-    val startMinute: Int = 0,
-    val endHour: Int = 7,
-    val endMinute: Int = 0,
-    val days: Set<Int> = emptySet(), // 1=월, 2=화, 3=수, 4=목, 5=금, 6=토, 7=일
-    val isEnabled: Boolean = true
-)
-
-data class ConnectionInfo(
-    val myCode: String = "",
-    val partnerCode: String = "",
-    val isConnected: Boolean = false,
-    val connectedAt: Long = 0L
-)
-
 enum class AppTheme(val displayName: String) {
     DARK("다크"),
     LIGHT("라이트"),
@@ -96,8 +78,3 @@ data class DndConfig(
     val days: Set<Int> = setOf(1, 2, 3, 4, 5, 6, 7) // 기본: 매일
 )
 
-sealed class Command {
-    data class SetMute(val muted: Boolean) : Command()
-    data class SetVolume(val level: VolumeLevel) : Command()
-    object Disconnect : Command()
-}

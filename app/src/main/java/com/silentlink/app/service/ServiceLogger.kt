@@ -28,9 +28,9 @@ object ServiceLogger {
             if (!file.exists()) return "(로그 없음)"
             val lines = file.readLines()
             if (lines.size > MAX_LINES) {
-                val trimmed = lines.takeLast(MAX_LINES)
-                file.writeText(trimmed.joinToString("\n") + "\n")
-                trimmed.joinToString("\n")
+                val text = lines.takeLast(MAX_LINES).joinToString("\n")
+                file.writeText("$text\n")
+                text
             } else {
                 lines.joinToString("\n")
             }

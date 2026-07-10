@@ -118,6 +118,14 @@ fun MainNavigation(viewModel: MainViewModel) {
 
     fun hasCriticalPerms() = audioManager.canWriteSettings() && audioManager.canSetMute()
 
+    fun navigateTopLevel(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     // 권한 안내: ViewModel 생존 기간 동안 1회만 설정 탐색 (Activity 재생성 시 플래시 방지)
     LaunchedEffect(Unit) {
         if (!hasCriticalPerms() && viewModel.consumePermissionPrompt()) {
@@ -125,11 +133,7 @@ fun MainNavigation(viewModel: MainViewModel) {
             val promptCount = prefs.getInt("perms_prompt_count", 0)
             if (promptCount == 0) {
                 prefs.edit().putInt("perms_prompt_count", promptCount + 1).apply()
-                navController.navigate("settings") {
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
-                }
+                navigateTopLevel("settings")
             }
         }
     }
@@ -146,44 +150,8 @@ fun MainNavigation(viewModel: MainViewModel) {
         }
     }
 
-    var showPermGuideDialog by remember { mutableStateOf(false) }
-
-    // 새 컨트롤러 등록 시 권한이 없으면 안내
     LaunchedEffect(Unit) {
-        viewModel.showPermissionGuide.collect {
-            if (!hasCriticalPerms()) showPermGuideDialog = true
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        viewModel.pendingNavRoute.collect { route ->
-            navController.navigate(route) {
-                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }
-    }
-
-    if (showPermGuideDialog) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showPermGuideDialog = false },
-            title = { Text("권한 설정 필요") },
-            text = { Text("상대방이 나의 볼륨을 제어하려면\n시스템 설정 변경 및 방해금지 접근 권한이 필요합니다.\n설정 화면에서 권한을 허용해 주세요.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showPermGuideDialog = false
-                    navController.navigate("settings") {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }) { Text("설정으로 이동", color = AccentBlue) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPermGuideDialog = false }) { Text("나중에") }
-            }
-        )
+        viewModel.pendingNavRoute.collect { route -> navigateTopLevel(route) }
     }
 
     Scaffold(
@@ -197,15 +165,7 @@ fun MainNavigation(viewModel: MainViewModel) {
                     val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
                     NavigationBarItem(
                         selected = selected,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
+                        onClick = { navigateTopLevel(item.route) },
                         icon = {
                             Icon(
                                 imageVector = item.icon,

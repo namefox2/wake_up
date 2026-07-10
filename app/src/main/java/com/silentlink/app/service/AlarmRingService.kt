@@ -44,8 +44,9 @@ class AlarmRingService : Service() {
         const val EXTRA_ALARM_VIBRATE = "alarm_vibrate"
         private const val AUTO_DISMISS_MS = 60 * 1000L // 1분 후 자동 해제
 
-        val isRinging = MutableStateFlow(false)
-        var ringingLabel = ""
+        private val _isRinging = MutableStateFlow(false)
+        val isRinging: kotlinx.coroutines.flow.StateFlow<Boolean> = _isRinging
+        @Volatile var ringingLabel = ""
             private set
 
         fun start(context: Context, alarmId: String, label: String, alarmSound: Boolean = true, alarmVibrate: Boolean = true) {
@@ -98,7 +99,7 @@ class AlarmRingService : Service() {
         }
 
         ringingLabel = label
-        isRinging.value = true
+        _isRinging.value = true
 
         if (shouldSound) startRinging()
         if (shouldVibrate) startVibrating()
@@ -208,7 +209,7 @@ class AlarmRingService : Service() {
 
     override fun onDestroy() {
         autoDismissHandler.removeCallbacks(autoDismissRunnable)
-        isRinging.value = false
+        _isRinging.value = false
         ringingLabel = ""
         ringtone?.stop()
         ringtone = null

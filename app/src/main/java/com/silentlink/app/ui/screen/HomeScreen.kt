@@ -420,19 +420,21 @@ private fun PartnerListTab(
         }
     } else {
         partners.forEachIndexed { index, partner ->
-            if (index > 0) Spacer(modifier = Modifier.height(12.dp))
-            PartnerCard(
-                partner = partner,
-                name = deviceNames[partner.uid],
-                canWriteSettings = canWriteSettings,
-                canSetMute = canSetMute,
-                restoreInfo = if (index == 0) volumeRestoreInfo else null,
-                onVolumeSelect = { level -> onVolumeSelect(partner.uid, level) },
-                onDisconnect = { onDisconnect(partner.uid) },
-                onRename = { name -> onSetDeviceName(partner.uid, name) },
-                onGrantPermission = onGrantPermission,
-                onGrantDndPermission = onGrantDndPermission
-            )
+            key(partner.uid) {
+                if (index > 0) Spacer(modifier = Modifier.height(12.dp))
+                PartnerCard(
+                    partner = partner,
+                    name = deviceNames[partner.uid],
+                    canWriteSettings = canWriteSettings,
+                    canSetMute = canSetMute,
+                    restoreInfo = if (index == 0) volumeRestoreInfo else null,
+                    onVolumeSelect = { level -> onVolumeSelect(partner.uid, level) },
+                    onDisconnect = { onDisconnect(partner.uid) },
+                    onRename = { name -> onSetDeviceName(partner.uid, name) },
+                    onGrantPermission = onGrantPermission,
+                    onGrantDndPermission = onGrantDndPermission
+                )
+            }
         }
     }
 
@@ -445,6 +447,7 @@ private fun PartnerListTab(
         )
         Spacer(modifier = Modifier.height(8.dp))
         controllers.forEach { controller ->
+            key(controller.uid) {
             var showBlockDialog by remember { mutableStateOf(false) }
             var showRenameDialog by remember { mutableStateOf(false) }
             var renameInput by remember { mutableStateOf(deviceNames[controller.uid] ?: "") }
@@ -522,6 +525,7 @@ private fun PartnerListTab(
                     ) { Text("차단", fontSize = 13.sp) }
                 }
             }
+            } // key(controller.uid)
         }
     }
 }

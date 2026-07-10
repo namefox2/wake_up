@@ -41,7 +41,7 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
         .enablePendingPurchases()
         .build()
 
-    private val productDetailsList = mutableListOf<ProductDetails>()
+    @Volatile private var productDetailsList: List<ProductDetails> = emptyList()
 
     sealed class BillingState {
         object Idle : BillingState()
@@ -75,8 +75,7 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
         billingClient.queryProductDetailsAsync(
             QueryProductDetailsParams.newBuilder().setProductList(productList).build()
         ) { _, details ->
-            productDetailsList.clear()
-            productDetailsList.addAll(details)
+            productDetailsList = details.toList()
         }
     }
 

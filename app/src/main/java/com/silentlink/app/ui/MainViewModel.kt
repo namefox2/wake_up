@@ -36,7 +36,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.lang.ref.WeakReference
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -83,7 +85,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private var restoreInfoJob: Job? = null
-    private var pendingSlotPurchaseActivity: Activity? = null
+    // WeakReference prevents Activity leak across configuration changes
+    private var pendingSlotPurchaseActivity: WeakReference<Activity>? = null
     private val partnerListenerJobs = mutableMapOf<String, List<Job>>()
 
     companion object {
@@ -106,7 +109,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch {
                     val myUid = _uiState.value.myUid.ifEmpty { return@launch }
                     repository.setPurchasedSlots(myUid, newSlots)
-                    _uiState.value = _uiState.value.copy(purchasedSlots = newSlots)
+                    _uiState.update { it.copy(purchasedSlots = newSlots) }
                 }
             },
             onBillingReady = { playSlots ->
@@ -116,7 +119,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val firebaseSlots = _uiState.value.purchasedSlots
                     if (playSlots > firebaseSlots) {
                         repository.setPurchasedSlots(myUid, playSlots)
-                        _uiState.value = _uiState.value.copy(purchasedSlots = playSlots)
+                        _uiState.update { it.copy(purchasedSlots = playSlots) }
                     }
                 }
             }
@@ -124,7 +127,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             billingManager.billingState.collect { state ->
                 if (state is BillingManager.BillingState.Error) {
-                    _uiState.value = _uiState.value.copy(errorMessage = state.message)
+                    _uiState.update { it.copy(errorMessage = state.message) }
                 }
             }
         }
@@ -157,22 +160,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             gson.fromJson<Map<String, String>>(prefs[KEY_DEVICE_NAMES] ?: "{}", mapType) ?: emptyMap()
         }.getOrDefault(emptyMap())
 
-        val resolvedDnd = dndConfig ?: DndConfig()
         val adConsent = prefs[KEY_AD_CONSENT] ?: false
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             myCode     = myCode,
             myUid      = myUid,
-            partners   = partnerUids.map { PartnerState(uid = it) },
+            partners   = partnerUids.map { uid -> PartnerState(uid = uid) },
             theme      = theme,
-            dndConfig  = resolvedDnd,
+            dndConfig  = dndConfig,
             myStatus   = DeviceStatus(isMuted = audioManager.isMuted(), isOnline = true),
             myActivity = myActivity,
             purchasedSlots = purchasedSlots,
             googleEmail = repository.getGoogleEmail(),
             deviceNames = deviceNames,
             adConsentAccepted = adConsent
-        )
-        DndPrefs.save(context, resolvedDnd)
+        ) }
+        DndPrefs.save(context, dndConfig)
 
         // 온보딩된 기기는 파트너 유무와 관계없이 항상 서비스 실행
         // (원격 명령 수신, 볼륨 상태 동기화, 알람 스케줄링 필요)
@@ -193,7 +195,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onboard(adConsentAccepted: Boolean) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isOnboarding = true, errorMessage = null)
+            _uiState.update { it.copy(isOnboarding = true, errorMessage = null) }
             try {
                 val uid  = repository.signInAnonymously()
                 val code = repository.generateInviteCode()
@@ -204,34 +206,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     prefs[KEY_MY_CODE]    = code
                     prefs[KEY_AD_CONSENT] = adConsentAccepted
                 }
-                _uiState.value = _uiState.value.copy(myUid = uid, myCode = code, adConsentAccepted = adConsentAccepted)
+                _uiState.update { it.copy(myUid = uid, myCode = code, adConsentAccepted = adConsentAccepted, isOnboarding = false) }
                 _isOnboarded.value = true
                 quickPrefs.edit().putBoolean("onboarded", true).apply()
                 // 동의 기록은 화면 전환 후 백그라운드에서 처리 (네트워크 지연이 UX에 영향 없도록)
-                viewModelScope.launch {
-                    runCatching {
-                        val ctx = getApplication<Application>()
-                        val pm = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
-                        val versionName = pm.versionName ?: "unknown"
-                        val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P)
-                            pm.longVersionCode else pm.versionCode.toLong()
-                        repository.recordConsent(
-                            uid = uid,
-                            appVersion = versionName,
-                            appVersionCode = versionCode,
-                            androidSdkInt = android.os.Build.VERSION.SDK_INT,
-                            deviceManufacturer = android.os.Build.MANUFACTURER,
-                            deviceModel = android.os.Build.MODEL,
-                            adConsentAccepted = adConsentAccepted
-                        )
-                    }
+                runCatching {
+                    val ctx = getApplication<Application>()
+                    val pm = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+                    val versionName = pm.versionName ?: "unknown"
+                    val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P)
+                        pm.longVersionCode else pm.versionCode.toLong()
+                    repository.recordConsent(
+                        uid = uid,
+                        appVersion = versionName,
+                        appVersionCode = versionCode,
+                        androidSdkInt = android.os.Build.VERSION.SDK_INT,
+                        deviceManufacturer = android.os.Build.MANUFACTURER,
+                        deviceModel = android.os.Build.MODEL,
+                        adConsentAccepted = adConsentAccepted
+                    )
                 }
                 SilentLinkService.start(getApplication())
                 listenToMyAlarms(uid)
                 listenToControllers(uid)
                 listenToMyPartnerIds(uid)
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isOnboarding = false, errorMessage = "초기화 실패: ${e.message}")
+                _uiState.update { it.copy(isOnboarding = false, errorMessage = "초기화 실패: ${e.message}") }
             }
         }
     }
@@ -239,13 +239,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun connectWithPartnerCode(partnerCode: String) {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
-            _uiState.value = _uiState.value.copy(errorMessage = null)
+            _uiState.update { it.copy(errorMessage = null) }
 
             val maxDevices = 1 + _uiState.value.purchasedSlots
             if (_uiState.value.partners.size >= maxDevices) {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = "슬롯이 부족합니다. 설정에서 추가 슬롯을 구매하세요."
-                )
+                _uiState.update { it.copy(errorMessage = "슬롯이 부족합니다. 설정에서 추가 슬롯을 구매하세요.") }
                 return@launch
             }
 
@@ -257,18 +255,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         val newPartners = partnerUids.map { uid ->
                             _uiState.value.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
                         }
-                        _uiState.value = _uiState.value.copy(partners = newPartners, errorMessage = null)
+                        _uiState.update { it.copy(partners = newPartners, errorMessage = null) }
                         partnerUids.lastOrNull()?.let { listenToPartner(it) }
                     }
                     ConnectResult.NOT_FOUND ->
-                        _uiState.value = _uiState.value.copy(errorMessage = "코드를 찾을 수 없습니다")
+                        _uiState.update { it.copy(errorMessage = "코드를 찾을 수 없습니다") }
                     ConnectResult.ALREADY_CONNECTED ->
-                        _uiState.value = _uiState.value.copy(errorMessage = "이미 연결된 코드입니다")
-                    ConnectResult.SLOT_LIMIT_REACHED ->
-                        _uiState.value = _uiState.value.copy(errorMessage = "슬롯이 부족합니다")
+                        _uiState.update { it.copy(errorMessage = "이미 연결된 코드입니다") }
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(errorMessage = "연결 실패: ${e.message}")
+                _uiState.update { it.copy(errorMessage = "연결 실패: ${e.message}") }
             }
         }
     }
@@ -277,20 +273,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         partnerListenerJobs[partnerUid]?.forEach { it.cancel() }
         val statusJob = viewModelScope.launch {
             repository.observePartnerStatus(partnerUid).collect { status ->
-                _uiState.value = _uiState.value.copy(
-                    partners = _uiState.value.partners.map { p ->
+                _uiState.update { state ->
+                    state.copy(partners = state.partners.map { p ->
                         if (p.uid == partnerUid) p.copy(status = status) else p
-                    }
-                )
+                    })
+                }
             }
         }
         val alarmsJob = viewModelScope.launch {
             repository.observeAlarms(partnerUid).collect { alarms ->
-                _uiState.value = _uiState.value.copy(
-                    partners = _uiState.value.partners.map { p ->
+                _uiState.update { state ->
+                    state.copy(partners = state.partners.map { p ->
                         if (p.uid == partnerUid) p.copy(alarmsForThem = alarms) else p
-                    }
-                )
+                    })
+                }
             }
         }
         partnerListenerJobs[partnerUid] = listOf(statusJob, alarmsJob)
@@ -299,7 +295,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun listenToMyAlarms(myUid: String) {
         viewModelScope.launch {
             repository.observeAlarms(myUid).collect { alarms ->
-                _uiState.value = _uiState.value.copy(alarmsFromPartners = alarms)
+                _uiState.update { it.copy(alarmsFromPartners = alarms) }
             }
         }
     }
@@ -320,7 +316,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val controllers = uids.map { uid ->
                     ControllerState(uid = uid, inviteCode = codeCache[uid] ?: uid.takeLast(6).uppercase())
                 }
-                _uiState.value = _uiState.value.copy(controllers = controllers)
+                _uiState.update { it.copy(controllers = controllers) }
                 if (initialized && newOnes.isNotEmpty()) {
                     _showPermissionGuide.emit(Unit)
                 }
@@ -351,7 +347,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val newPartners = firebaseUids.map { uid ->
                     _uiState.value.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
                 }
-                _uiState.value = _uiState.value.copy(partners = newPartners)
+                _uiState.update { it.copy(partners = newPartners) }
                 savePartnerUids(firebaseUids)
             }
         }
@@ -368,15 +364,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             val oldCode = _uiState.value.myCode.ifEmpty { return@launch }
-            _uiState.value = _uiState.value.copy(isRefreshingCode = true)
+            _uiState.update { it.copy(isRefreshingCode = true) }
             runCatching {
                 val newCode = repository.refreshInviteCode(myUid, oldCode)
                 getApplication<Application>().appDataStore.edit { prefs ->
                     prefs[KEY_MY_CODE] = newCode
                 }
-                _uiState.value = _uiState.value.copy(myCode = newCode, isRefreshingCode = false)
+                _uiState.update { it.copy(myCode = newCode, isRefreshingCode = false) }
             }.onFailure {
-                _uiState.value = _uiState.value.copy(isRefreshingCode = false)
+                _uiState.update { it.copy(isRefreshingCode = false) }
             }
         }
     }
@@ -385,7 +381,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val current = _uiState.value.deviceNames.toMutableMap()
             if (name.isBlank()) current.remove(uid) else current[uid] = name.trim()
-            _uiState.value = _uiState.value.copy(deviceNames = current)
+            _uiState.update { it.copy(deviceNames = current) }
             getApplication<Application>().appDataStore.edit { prefs ->
                 prefs[KEY_DEVICE_NAMES] = gson.toJson(current)
             }
@@ -394,14 +390,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshPartnerStatus() {
         viewModelScope.launch {
-            _uiState.value.partners.forEach { partner ->
-                val status = repository.readPartnerStatus(partner.uid) ?: return@forEach
-                _uiState.value = _uiState.value.copy(
-                    partners = _uiState.value.partners.map { p ->
-                        if (p.uid == partner.uid) p.copy(status = status) else p
-                    }
-                )
+            val fetched = _uiState.value.partners.map { partner ->
+                repository.readPartnerStatus(partner.uid)?.let { partner.copy(status = it) } ?: partner
             }
+            _uiState.update { it.copy(partners = fetched) }
         }
     }
 
@@ -412,10 +404,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (dndManager.isInDndTime(_uiState.value.dndConfig)) return@launch
             repository.sendCommand(partnerUid, "setVolume", level.name)
             restoreInfoJob?.cancel()
-            _uiState.value = _uiState.value.copy(volumeRestoreInfo = "10분 후 원래 상태로 돌아갑니다")
+            _uiState.update { it.copy(volumeRestoreInfo = "10분 후 원래 상태로 돌아갑니다") }
             restoreInfoJob = viewModelScope.launch {
                 delay(10 * 60 * 1000L)
-                _uiState.value = _uiState.value.copy(volumeRestoreInfo = null)
+                _uiState.update { it.copy(volumeRestoreInfo = null) }
             }
         }
     }
@@ -424,14 +416,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             repository.updateAccessAllowed(myUid, allowed)
-            _uiState.value = _uiState.value.copy(
-                myStatus = _uiState.value.myStatus.copy(isAccessAllowed = allowed)
-            )
+            _uiState.update { it.copy(myStatus = it.myStatus.copy(isAccessAllowed = allowed)) }
         }
     }
 
     fun updateDndConfig(config: DndConfig) {
-        _uiState.value = _uiState.value.copy(dndConfig = config)
+        _uiState.update { it.copy(dndConfig = config) }
         DndPrefs.save(getApplication(), config)
         viewModelScope.launch {
             getApplication<Application>().appDataStore.edit { prefs ->
@@ -445,7 +435,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun addAlarmFor(partnerUid: String, alarm: RemoteAlarm) {
         viewModelScope.launch {
             runCatching { repository.addAlarm(partnerUid, alarm) }.onFailure {
-                _uiState.value = _uiState.value.copy(errorMessage = "알람 저장 실패: ${it.message}")
+                _uiState.update { state -> state.copy(errorMessage = "알람 저장 실패: ${it.message}") }
             }
         }
     }
@@ -453,7 +443,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateAlarmFor(partnerUid: String, alarm: RemoteAlarm) {
         viewModelScope.launch {
             runCatching { repository.updateAlarm(partnerUid, alarm) }.onFailure {
-                _uiState.value = _uiState.value.copy(errorMessage = "알람 수정 실패: ${it.message}")
+                _uiState.update { state -> state.copy(errorMessage = "알람 수정 실패: ${it.message}") }
             }
         }
     }
@@ -461,7 +451,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteAlarmFor(partnerUid: String, alarmId: String) {
         viewModelScope.launch {
             runCatching { repository.deleteAlarm(partnerUid, alarmId) }.onFailure {
-                _uiState.value = _uiState.value.copy(errorMessage = "알람 삭제 실패: ${it.message}")
+                _uiState.update { state -> state.copy(errorMessage = "알람 삭제 실패: ${it.message}") }
             }
         }
     }
@@ -470,7 +460,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             runCatching { repository.deleteAlarm(myUid, alarmId) }.onFailure {
-                _uiState.value = _uiState.value.copy(errorMessage = "알람 삭제 실패: ${it.message}")
+                _uiState.update { state -> state.copy(errorMessage = "알람 삭제 실패: ${it.message}") }
             }
         }
     }
@@ -482,7 +472,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectAlarmPartner(uid: String) {
-        _uiState.value = _uiState.value.copy(selectedAlarmPartnerUid = uid)
+        _uiState.update { it.copy(selectedAlarmPartnerUid = uid) }
     }
 
     // 파트너 연결 해제
@@ -495,7 +485,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             runCatching { repository.disconnectFromPartner(myUid, partnerUid) }
             val newPartners = _uiState.value.partners.filter { it.uid != partnerUid }
             savePartnerUids(newPartners.map { it.uid })
-            _uiState.value = _uiState.value.copy(partners = newPartners)
+            _uiState.update { it.copy(partners = newPartners) }
         }
     }
 
@@ -506,17 +496,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             runCatching { repository.disconnectAll(myUid) }
             savePartnerUids(emptyList())
-            _uiState.value = _uiState.value.copy(
-                partners = emptyList(),
-                volumeRestoreInfo = null
-            )
+            _uiState.update { it.copy(partners = emptyList(), volumeRestoreInfo = null) }
         }
     }
 
     // Google Sign-In + 슬롯 구매
 
     fun requestSlotPurchase(activity: Activity) {
-        pendingSlotPurchaseActivity = activity
+        pendingSlotPurchaseActivity = WeakReference(activity)
         if (repository.isGoogleLinked()) {
             launchSlotBilling(activity)
         } else {
@@ -524,7 +511,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 try {
                     _googleSignInRequest.emit(googleSignInManager.getSignInIntent())
                 } catch (e: IllegalStateException) {
-                    _uiState.value = _uiState.value.copy(errorMessage = "Google 로그인 설정이 완료되지 않았습니다.")
+                    _uiState.update { it.copy(errorMessage = "Google 로그인 설정이 완료되지 않았습니다.") }
                 }
             }
         }
@@ -532,7 +519,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onGoogleSignInResult(data: Intent?) {
         val idToken = googleSignInManager.extractIdToken(data) ?: run {
-            _uiState.value = _uiState.value.copy(errorMessage = "Google 로그인 실패")
+            _uiState.update { it.copy(errorMessage = "Google 로그인 실패") }
             return
         }
         viewModelScope.launch {
@@ -541,16 +528,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 LinkResult.LINKED, LinkResult.RESTORED -> {
                     val myUid = repository.getCurrentUserId() ?: return@launch
                     val slots = runCatching { repository.getPurchasedSlots(myUid) }.getOrDefault(0)
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         myUid = myUid,
                         purchasedSlots = slots,
                         googleEmail = repository.getGoogleEmail()
-                    )
+                    ) }
                     // RESTORED: 구매 이력이 Firebase에 있으면 자동 복원됨
-                    pendingSlotPurchaseActivity?.let { launchSlotBilling(it) }
+                    pendingSlotPurchaseActivity?.get()?.let { launchSlotBilling(it) }
                 }
                 LinkResult.FAILED ->
-                    _uiState.value = _uiState.value.copy(errorMessage = "Google 계정 연결 실패")
+                    _uiState.update { it.copy(errorMessage = "Google 계정 연결 실패") }
             }
             pendingSlotPurchaseActivity = null
         }
@@ -559,7 +546,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun launchSlotBilling(activity: Activity) {
         val currentSlots = _uiState.value.purchasedSlots
         if (currentSlots >= 4) {
-            _uiState.value = _uiState.value.copy(errorMessage = "이미 최대 슬롯(5대)에 도달했습니다")
+            _uiState.update { it.copy(errorMessage = "이미 최대 슬롯(5대)에 도달했습니다") }
             return
         }
         billingManager.launchSlotPurchase(activity, currentSlots)
@@ -568,7 +555,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // 테마
 
     fun setTheme(theme: AppTheme) {
-        _uiState.value = _uiState.value.copy(theme = theme)
+        _uiState.update { it.copy(theme = theme) }
         quickPrefs.edit().putString("theme", theme.name).apply()
         viewModelScope.launch {
             getApplication<Application>().appDataStore.edit { prefs ->
@@ -581,7 +568,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             repository.updateMyActivity(myUid, activity)
-            _uiState.value = _uiState.value.copy(myActivity = activity)
+            _uiState.update { it.copy(myActivity = activity) }
             getApplication<Application>().appDataStore.edit { prefs ->
                 prefs[KEY_MY_ACTIVITY] = activity.name
             }
@@ -592,31 +579,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             val result = runCatching { repository.redeemCoupon(myUid, code) }.getOrElse {
-                _uiState.value = _uiState.value.copy(couponMessage = "오류: ${it.message}")
+                _uiState.update { state -> state.copy(couponMessage = "오류: ${it.message}") }
                 return@launch
             }
             when (result) {
-                CouponResult.SUCCESS -> _uiState.value = _uiState.value.copy(
-                    purchasedSlots = _uiState.value.purchasedSlots + 1,
+                CouponResult.SUCCESS -> _uiState.update { it.copy(
+                    purchasedSlots = it.purchasedSlots + 1,
                     couponMessage = "쿠폰이 적용되었습니다! 슬롯 1개가 추가되었습니다.",
                     couponSuccess = true
-                )
-                CouponResult.INVALID -> _uiState.value = _uiState.value.copy(couponMessage = "유효하지 않은 쿠폰 코드입니다", couponSuccess = false)
-                CouponResult.ALREADY_USED -> _uiState.value = _uiState.value.copy(couponMessage = "이미 사용한 쿠폰입니다", couponSuccess = false)
-                CouponResult.MAX_REACHED -> _uiState.value = _uiState.value.copy(couponMessage = "이미 최대 슬롯에 도달했습니다", couponSuccess = false)
+                ) }
+                CouponResult.INVALID -> _uiState.update { it.copy(couponMessage = "유효하지 않은 쿠폰 코드입니다", couponSuccess = false) }
+                CouponResult.ALREADY_USED -> _uiState.update { it.copy(couponMessage = "이미 사용한 쿠폰입니다", couponSuccess = false) }
+                CouponResult.MAX_REACHED -> _uiState.update { it.copy(couponMessage = "이미 최대 슬롯에 도달했습니다", couponSuccess = false) }
             }
         }
     }
 
     fun clearCouponMessage() {
-        _uiState.value = _uiState.value.copy(couponMessage = null, couponSuccess = false)
+        _uiState.update { it.copy(couponMessage = null, couponSuccess = false) }
     }
 
     fun deleteAccount() {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             val myCode = _uiState.value.myCode
-            _uiState.value = _uiState.value.copy(isDeletingAccount = true)
+            _uiState.update { it.copy(isDeletingAccount = true) }
             try {
                 partnerListenerJobs.values.forEach { jobs -> jobs.forEach { it.cancel() } }
                 partnerListenerJobs.clear()
@@ -628,13 +615,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = SilentLinkUiState()
                 _isOnboarded.value = false
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isDeletingAccount = false, errorMessage = "계정 삭제 실패: ${e.message}")
+                _uiState.update { it.copy(isDeletingAccount = false, errorMessage = "계정 삭제 실패: ${e.message}") }
             }
         }
     }
 
     fun clearError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     private suspend fun savePartnerUids(uids: List<String>) {
