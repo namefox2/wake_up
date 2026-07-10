@@ -236,8 +236,8 @@
           </tr>
           <tr>
             <td>광고 식별자 (AAID)</td>
-            <td>앱 실행 시 (Google AdMob)</td>
-            <td>맞춤·비맞춤 광고 제공</td>
+            <td>광고 맞춤화 동의 선택 시</td>
+            <td>맞춤 광고 제공 (미동의 시 AAID 미수집, 비맞춤 광고 표시)</td>
           </tr>
         </tbody>
       </table>
@@ -269,8 +269,11 @@
     <ul>
       <li>계약 또는 청약철회에 관한 기록: 5년 (전자상거래 등에서의 소비자 보호에 관한 법률)</li>
       <li>이용자 불만 또는 분쟁 처리에 관한 기록: 3년</li>
-      <li><strong>서비스 이용약관·개인정보처리방침 동의 기록</strong>: 계정 삭제 후에도 분쟁 해결 및 법적 의무 이행을 위해 보존하며, 별도 삭제 요청 시 검토 후 처리합니다.</li>
+      <li><strong>서비스 이용약관·개인정보처리방침 동의 기록</strong>: 계정 삭제 후에도 분쟁 해결 및 법적 의무 이행을 위해 <strong>계정 삭제일로부터 3년간</strong> 보존하며, 이후 복원 불가능한 방식으로 영구 삭제합니다. 별도 삭제 요청 시 검토 후 처리합니다.</li>
     </ul>
+    <p style="margin-top:12px;">
+      개인정보 파기 방법: Firebase 서버에 저장된 데이터는 해당 노드를 완전히 삭제하는 방식으로 처리하며, 삭제된 데이터는 복원이 불가능합니다.
+    </p>
   </section>
 
   <section>
@@ -295,9 +298,15 @@
           </tr>
           <tr>
             <td>Google LLC (AdMob)</td>
-            <td>광고 식별자 (AAID)</td>
+            <td>광고 식별자 (AAID, 동의 시에만)</td>
             <td>인앱 광고 제공</td>
             <td>Google 정책에 따름</td>
+          </tr>
+          <tr>
+            <td>Google LLC (Google Play)</td>
+            <td>결제 수단 정보, 구매 내역</td>
+            <td>인앱 결제 처리 (슬롯 구매, 개발자 응원)</td>
+            <td>Google Play 결제 정책에 따름</td>
           </tr>
         </tbody>
       </table>
@@ -317,6 +326,14 @@
     <p style="margin-top:12px;">
       권리 행사는 아래 연락처로 이메일을 보내주시면 <strong>영업일 기준 5일 이내</strong> 처리합니다.
     </p>
+    <p style="margin-top:12px;">
+      개인정보 침해로 인한 신고·상담은 아래 기관에 문의하실 수 있습니다.
+    </p>
+    <ul style="margin-top:8px;">
+      <li>개인정보침해신고센터: <a href="https://privacy.kisa.or.kr" style="color:var(--accent);">privacy.kisa.or.kr</a> / 국번없이 118</li>
+      <li>개인정보보호위원회: <a href="https://www.pipc.go.kr" style="color:var(--accent);">www.pipc.go.kr</a> / 02-2100-2499</li>
+      <li>경찰청 사이버수사국: <a href="https://ecrm.police.go.kr" style="color:var(--accent);">ecrm.police.go.kr</a> / 국번없이 182</li>
+    </ul>
   </section>
 
   <section>
