@@ -260,8 +260,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     ConnectResult.NOT_FOUND ->
                         _uiState.update { it.copy(errorMessage = "코드를 찾을 수 없습니다") }
-                    ConnectResult.ALREADY_CONNECTED ->
-                        _uiState.update { it.copy(errorMessage = "이미 연결된 코드입니다") }
+                    ConnectResult.ALREADY_CONNECTED -> {
+                        // 재설치 후 같은 코드 입력 시 — Firebase에 연결이 살아있으므로 그냥 불러옴
+                        val partnerUids = repository.getPartnerUids(myUid)
+                        savePartnerUids(partnerUids)
+                        val newPartners = partnerUids.map { uid ->
+                            _uiState.value.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
+                        }
+                        _uiState.update { it.copy(partners = newPartners, errorMessage = null) }
+                        partnerUids.forEach { uid ->
+                            if (!partnerListenerJobs.containsKey(uid)) listenToPartner(uid)
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = "연결 실패: ${e.message}") }
