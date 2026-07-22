@@ -62,8 +62,6 @@ class AudioControlManager(private val context: Context) {
         } catch (_: Exception) { false }
     }
 
-    fun canSetMuteOrVolume() = canSetMute()
-
     private fun exitDndIfActive() {
         val am = audioManager ?: return
         if (am.ringerMode == AudioManager.RINGER_MODE_SILENT) {
