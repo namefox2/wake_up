@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.silentlink.app.CrashLogger
 import com.silentlink.app.ui.util.findActivity
 import kotlinx.coroutines.launch
 import com.silentlink.app.manager.AudioControlManager
@@ -310,6 +311,19 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 subtitle = "1.0.0",
                 iconTint = colors.onSurface.copy(alpha = 0.6f)
             )
+            if (CrashLogger.exists(context)) {
+                HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+                SettingItem(
+                    icon = Icons.Default.BugReport,
+                    title = "오류 로그 복사",
+                    subtitle = "마지막 크래시 로그를 클립보드에 복사합니다",
+                    iconTint = DangerRed,
+                    onClick = {
+                        clipboard.setText(AnnotatedString(CrashLogger.read(context)))
+                        CrashLogger.clear(context)
+                    }
+                )
+            }
         }
 
         if (uiState.isConnected) {
