@@ -135,7 +135,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun loadPersistedState() {
         val context = getApplication<Application>()
-        val prefs = context.appDataStore.data.first()
+        val prefs = try {
+            context.appDataStore.data.first()
+        } catch (_: Exception) {
+            // 업데이트 후 DataStore 파일 손상 시 초기화
+            runCatching { context.appDataStore.edit { it.clear() } }
+            return
+        }
         val onboarded = prefs[KEY_ONBOARDED] ?: false
         quickPrefs.edit().putBoolean("onboarded", onboarded).apply()
         _isOnboarded.value = onboarded

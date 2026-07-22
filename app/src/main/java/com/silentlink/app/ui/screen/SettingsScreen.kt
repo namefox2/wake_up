@@ -87,6 +87,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
 
 
+    var crashLogExists by remember { mutableStateOf(CrashLogger.exists(context)) }
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showCouponDialog by remember { mutableStateOf(false) }
@@ -311,7 +312,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 subtitle = "1.0.0",
                 iconTint = colors.onSurface.copy(alpha = 0.6f)
             )
-            if (CrashLogger.exists(context)) {
+            if (crashLogExists) {
                 HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
                 SettingItem(
                     icon = Icons.Default.BugReport,
@@ -321,6 +322,18 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     onClick = {
                         clipboard.setText(AnnotatedString(CrashLogger.read(context)))
                         CrashLogger.clear(context)
+                        crashLogExists = false
+                    }
+                )
+                HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+                SettingItem(
+                    icon = Icons.Default.Delete,
+                    title = "오류 로그 지우기",
+                    subtitle = "저장된 크래시 로그를 삭제합니다",
+                    iconTint = colors.onSurface.copy(alpha = 0.5f),
+                    onClick = {
+                        CrashLogger.clear(context)
+                        crashLogExists = false
                     }
                 )
             }
