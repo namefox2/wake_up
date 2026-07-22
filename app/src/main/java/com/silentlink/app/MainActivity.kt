@@ -1,9 +1,15 @@
 package com.silentlink.app
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.DialogInterface
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.app.AlertDialog
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -67,6 +73,23 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 이전 크래시 로그가 있으면 Compose 로드 전에 네이티브 다이얼로그로 먼저 표시
+        if (CrashLogger.exists(this)) {
+            val log = CrashLogger.read(this)
+            CrashLogger.clear(this)
+            AlertDialog.Builder(this)
+                .setTitle("오류 로그")
+                .setMessage(log)
+                .setPositiveButton("클립보드 복사") { _: DialogInterface, _ ->
+                    val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText("crash_log", log))
+                    Toast.makeText(this, "복사됨", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("닫기", null)
+                .show()
+        }
+
         enableEdgeToEdge()
         AdMobManager.initialize(this)
         intent?.getStringExtra("navigate_to")?.let { viewModel.handleNotificationRoute(it) }

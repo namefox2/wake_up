@@ -15,6 +15,15 @@
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+
+# App classes used by Gson/Firebase (keep field names for serialization)
+-keepclassmembers class com.silentlink.app.** {
+    <fields>;
+}
+-keep class com.silentlink.app.App { *; }
+-keep class com.silentlink.app.CrashLogger { *; }
 
 # Google Play Billing
 -keep class com.android.billingclient.** { *; }
