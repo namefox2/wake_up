@@ -8,24 +8,23 @@ import com.silentlink.app.model.VolumeLevel
 
 class AudioControlManager(private val context: Context) {
 
-    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
 
-    fun canWriteSettings(): Boolean {
-        return Settings.System.canWrite(context)
-    }
+    fun canWriteSettings(): Boolean = Settings.System.canWrite(context)
 
     fun canSetMute(): Boolean {
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            ?: return false
         return nm.isNotificationPolicyAccessGranted
     }
 
     fun isMuted(): Boolean {
-        return audioManager.ringerMode == AudioManager.RINGER_MODE_SILENT ||
-               audioManager.ringerMode == AudioManager.RINGER_MODE_VIBRATE
+        val mode = audioManager?.ringerMode ?: return false
+        return mode == AudioManager.RINGER_MODE_SILENT || mode == AudioManager.RINGER_MODE_VIBRATE
     }
 
     fun getCurrentVolumeLevel(): VolumeLevel {
-        return when (audioManager.ringerMode) {
+        return when (audioManager?.ringerMode) {
             AudioManager.RINGER_MODE_SILENT  -> VolumeLevel.MUTE
             AudioManager.RINGER_MODE_VIBRATE -> VolumeLevel.VIBRATE
             else                             -> VolumeLevel.SOUND
@@ -33,29 +32,29 @@ class AudioControlManager(private val context: Context) {
     }
 
     fun setVolumeLevel(level: VolumeLevel): Boolean {
+        val am = audioManager ?: return false
         return try {
             when (level) {
                 VolumeLevel.MUTE -> {
                     try {
-                        audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
+                        am.ringerMode = AudioManager.RINGER_MODE_SILENT
                     } catch (_: SecurityException) {
-                        // DND 권한 없음 — 진동으로 폴백
-                        audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+                        am.ringerMode = AudioManager.RINGER_MODE_VIBRATE
                     }
                     true
                 }
                 VolumeLevel.VIBRATE -> {
                     exitDndIfActive()
-                    audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+                    am.ringerMode = AudioManager.RINGER_MODE_VIBRATE
                     true
                 }
                 VolumeLevel.SOUND -> {
                     exitDndIfActive()
-                    audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
+                    am.ringerMode = AudioManager.RINGER_MODE_NORMAL
                     if (canWriteSettings()) {
-                        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
+                        val max = am.getStreamMaxVolume(AudioManager.STREAM_RING)
                         val target = (max * level.value) / 100
-                        if (target > 0) audioManager.setStreamVolume(AudioManager.STREAM_RING, target, 0)
+                        if (target > 0) am.setStreamVolume(AudioManager.STREAM_RING, target, 0)
                     }
                     true
                 }
@@ -63,11 +62,13 @@ class AudioControlManager(private val context: Context) {
         } catch (_: Exception) { false }
     }
 
-    // SILENT(DND) 상태에서 진동/소리로 전환 시 먼저 DND를 해제해야 SecurityException이 발생하지 않음
+    fun canSetMuteOrVolume() = canSetMute()
+
     private fun exitDndIfActive() {
-        if (audioManager.ringerMode == AudioManager.RINGER_MODE_SILENT) {
-            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            if (nm.isNotificationPolicyAccessGranted) {
+        val am = audioManager ?: return
+        if (am.ringerMode == AudioManager.RINGER_MODE_SILENT) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            if (nm?.isNotificationPolicyAccessGranted == true) {
                 nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
             }
         }

@@ -12,10 +12,11 @@ import java.util.Calendar
 
 class AlarmScheduler(private val context: Context) {
 
-    private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
 
     fun schedule(alarm: RemoteAlarm) {
         if (!alarm.isEnabled) return
+        val am = alarmManager ?: return
         val triggerAt = nextTriggerTime(alarm) ?: return
 
         val intent = Intent(context, AlarmReceiver::class.java).apply {
@@ -30,17 +31,18 @@ class AlarmScheduler(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 10 * 60 * 1000L, pending)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
+                am.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 10 * 60 * 1000L, pending)
             } else {
-                alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, pending), pending)
+                am.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, pending), pending)
             }
         } catch (_: SecurityException) {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+            am.set(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         }
     }
 
     fun cancel(alarmId: String) {
+        val am = alarmManager ?: return
         val intent = Intent(context, AlarmReceiver::class.java)
         val pending = PendingIntent.getBroadcast(
             context,
@@ -48,7 +50,7 @@ class AlarmScheduler(private val context: Context) {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        alarmManager.cancel(pending)
+        am.cancel(pending)
     }
 
     fun nextTriggerTime(alarm: RemoteAlarm): Long? {

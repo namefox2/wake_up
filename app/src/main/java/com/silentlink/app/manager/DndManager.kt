@@ -8,10 +8,10 @@ import java.util.Calendar
 class DndManager(private val context: Context) {
 
     private val notificationManager =
-        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
 
     fun hasNotificationPolicyAccess(): Boolean {
-        return notificationManager.isNotificationPolicyAccessGranted
+        return notificationManager?.isNotificationPolicyAccessGranted == true
     }
 
     fun isInDndTime(config: DndConfig): Boolean {
