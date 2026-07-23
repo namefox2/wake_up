@@ -151,7 +151,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val myCode = prefs[KEY_MY_CODE] ?: return
         val theme  = runCatching { AppTheme.valueOf(prefs[KEY_THEME] ?: "") }.getOrDefault(AppTheme.DARK)
         quickPrefs.edit().putString("theme", theme.name).apply()
-        val dndConfig  = runCatching { gson.fromJson(prefs[KEY_DND_CONFIG], DndConfig::class.java) }.getOrDefault(DndConfig())
+        val dndConfig  = runCatching { gson.fromJson(prefs[KEY_DND_CONFIG], DndConfig::class.java) }.getOrNull() ?: DndConfig()
         val myActivity = runCatching { UserActivity.valueOf(prefs[KEY_MY_ACTIVITY] ?: "") }.getOrDefault(UserActivity.NONE)
 
         // 파트너 UID 로드 (신규 포맷 → 구버전 폴백)

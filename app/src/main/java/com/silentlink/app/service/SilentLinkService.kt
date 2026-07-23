@@ -309,7 +309,7 @@ class SilentLinkService : Service() {
     }
 
     private fun showPermissionGuideNotification() {
-        val nm = getSystemService(NotificationManager::class.java)
+        val nm = getSystemService(NotificationManager::class.java) ?: return
         val channelId = "silentlink_alerts"
         val openIntent = PendingIntent.getActivity(
             this, 9003,
@@ -331,7 +331,7 @@ class SilentLinkService : Service() {
     }
 
     private fun showVolumeChangedNotification() {
-        val nm = getSystemService(NotificationManager::class.java)
+        val nm = getSystemService(NotificationManager::class.java) ?: return
         val channelId = "silentlink_alerts"
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_silent_mode)
@@ -348,7 +348,7 @@ class SilentLinkService : Service() {
         val pi = PendingIntent.getActivity(
             this, 9001, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val nm = getSystemService(NotificationManager::class.java)
+        val nm = getSystemService(NotificationManager::class.java) ?: return
         val channelId = "silentlink_alerts"
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
@@ -362,7 +362,7 @@ class SilentLinkService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val nm = getSystemService(NotificationManager::class.java)
+        val nm = getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "깨워줘 연결 유지", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "상대방과의 연결을 유지합니다"
