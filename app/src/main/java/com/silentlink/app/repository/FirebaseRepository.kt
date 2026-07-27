@@ -97,7 +97,7 @@ class FirebaseRepository {
         db.getReference("devices/$myUid/partnerIds/$partnerUid").setValue(true).await()
         // 상대방 기기에 "나를 등록한 기기" 기록
         db.getReference("devices/$partnerUid/registeredBy/$myUid").setValue(true).await()
-        return ConnectResult.SUCCESS
+        return ConnectResult.SUCCESS(partnerUid)
     }
 
     suspend fun disconnectFromPartner(myUid: String, partnerUid: String) {
@@ -383,6 +383,10 @@ class FirebaseRepository {
     }
 }
 
-enum class ConnectResult { SUCCESS, NOT_FOUND, ALREADY_CONNECTED }
+sealed class ConnectResult {
+    data class SUCCESS(val partnerUid: String) : ConnectResult()
+    object NOT_FOUND : ConnectResult()
+    object ALREADY_CONNECTED : ConnectResult()
+}
 enum class LinkResult { LINKED, RESTORED, FAILED }
 enum class CouponResult { SUCCESS, INVALID, ALREADY_USED, MAX_REACHED }

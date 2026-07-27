@@ -254,20 +254,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             try {
-                when (repository.connectWithCode(myUid, partnerCode)) {
-                    ConnectResult.SUCCESS -> {
-                        val partnerUids = repository.getPartnerUids(myUid)
-                        savePartnerUids(partnerUids)
-                        val newPartners = partnerUids.map { uid ->
+                when (val result = repository.connectWithCode(myUid, partnerCode)) {
+                    is ConnectResult.SUCCESS -> {
+                        // Firebase 재조회 없이 현재 목록에 추가 — 재조회 시 타이밍 문제로 기존 파트너가 누락될 수 있음
+                        val newUids = (_uiState.value.partners.map { it.uid } + result.partnerUid).distinct()
+                        savePartnerUids(newUids)
+                        val newPartners = newUids.map { uid ->
                             _uiState.value.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
                         }
                         _uiState.update { it.copy(partners = newPartners, errorMessage = null) }
-                        partnerUids.lastOrNull()?.let { listenToPartner(it) }
+                        if (!partnerListenerJobs.containsKey(result.partnerUid)) listenToPartner(result.partnerUid)
                     }
                     ConnectResult.NOT_FOUND ->
                         _uiState.update { it.copy(errorMessage = "코드를 찾을 수 없습니다") }
                     ConnectResult.ALREADY_CONNECTED -> {
-                        // 재설치 후 같은 코드 입력 시 — Firebase에 연결이 살아있으므로 그냥 불러옴
+                        // 재설치 후 같은 코드 입력 시 — Firebase에 연결이 살아있으므로 전체 목록 재로드
                         val partnerUids = repository.getPartnerUids(myUid)
                         savePartnerUids(partnerUids)
                         val newPartners = partnerUids.map { uid ->
