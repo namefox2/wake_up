@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -108,7 +109,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             onSlotPurchased = { newSlots ->
                 viewModelScope.launch {
                     val myUid = _uiState.value.myUid.ifEmpty { return@launch }
-                    repository.setPurchasedSlots(myUid, newSlots)
+                    runCatching { repository.setPurchasedSlots(myUid, newSlots) }
                     _uiState.update { it.copy(purchasedSlots = newSlots) }
                 }
             },
@@ -119,7 +120,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val myUid = _uiState.first { it.myUid.isNotEmpty() }.myUid
                     val firebaseSlots = _uiState.value.purchasedSlots
                     if (playSlots > firebaseSlots) {
-                        repository.setPurchasedSlots(myUid, playSlots)
+                        runCatching { repository.setPurchasedSlots(myUid, playSlots) }
                         _uiState.update { it.copy(purchasedSlots = playSlots) }
                     }
                 }
@@ -290,7 +291,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun listenToPartner(partnerUid: String) {
         partnerListenerJobs[partnerUid]?.forEach { it.cancel() }
         val statusJob = viewModelScope.launch {
-            repository.observePartnerStatus(partnerUid).collect { status ->
+            repository.observePartnerStatus(partnerUid).catch { }.collect { status ->
                 _uiState.update { state ->
                     state.copy(partners = state.partners.map { p ->
                         if (p.uid == partnerUid) p.copy(status = status) else p
@@ -299,7 +300,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         val alarmsJob = viewModelScope.launch {
-            repository.observeAlarms(partnerUid).collect { alarms ->
+            repository.observeAlarms(partnerUid).catch { }.collect { alarms ->
                 _uiState.update { state ->
                     state.copy(partners = state.partners.map { p ->
                         if (p.uid == partnerUid) p.copy(alarmsForThem = alarms) else p
@@ -312,7 +313,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun listenToMyAlarms(myUid: String) {
         viewModelScope.launch {
-            repository.observeAlarms(myUid).collect { alarms ->
+            repository.observeAlarms(myUid).catch { }.collect { alarms ->
                 _uiState.update { it.copy(alarmsFromPartners = alarms) }
             }
         }
@@ -323,7 +324,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         var prevUids = emptySet<String>()
         val codeCache = mutableMapOf<String, String>()
         viewModelScope.launch {
-            repository.observeControllers(myUid).collect { uids ->
+            repository.observeControllers(myUid).catch { }.collect { uids ->
                 val current = uids.toSet()
                 val newOnes = current - prevUids
                 // Fetch invite codes only for newly seen UIDs, reuse cache for the rest
@@ -347,7 +348,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun listenToMyPartnerIds(myUid: String) {
         var initialized = false
         viewModelScope.launch {
-            repository.observePartnerIds(myUid).collect { firebaseUids ->
+            repository.observePartnerIds(myUid).catch { }.collect { firebaseUids ->
                 val currentUids = _uiState.value.partners.map { it.uid }.toSet()
                 val incoming = firebaseUids.toSet()
                 val removed = currentUids - incoming
