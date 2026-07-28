@@ -113,9 +113,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             },
             onBillingReady = { playSlots ->
-                // Play Store가 준비되면 Firebase와 슬롯 수를 맞춤 (계정 삭제 후 복원 대응)
+                // Play Store가 준비되면 Firebase와 슬롯 수를 맞춤 (업데이트/복원 대응)
+                // loadPersistedState()와 경쟁 — myUid가 세팅될 때까지 대기
                 viewModelScope.launch {
-                    val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+                    val myUid = _uiState.first { it.myUid.isNotEmpty() }.myUid
                     val firebaseSlots = _uiState.value.purchasedSlots
                     if (playSlots > firebaseSlots) {
                         repository.setPurchasedSlots(myUid, playSlots)
