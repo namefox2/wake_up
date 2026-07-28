@@ -261,14 +261,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 when (val result = repository.connectWithCode(myUid, partnerCode)) {
                     is ConnectResult.SUCCESS -> {
-                        // Firebase 재조회 없이 현재 목록에 추가 — 재조회 시 타이밍 문제로 기존 파트너가 누락될 수 있음
-                        val newUids = (_uiState.value.partners.map { it.uid } + result.partnerUid).distinct()
-                        savePartnerUids(newUids)
-                        val newPartners = newUids.map { uid ->
-                            _uiState.value.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
+                        val newPartnerUid = result.partnerUid
+                        _uiState.update { state ->
+                            val newUids = (state.partners.map { it.uid } + newPartnerUid).distinct()
+                            val newPartners = newUids.map { uid ->
+                                state.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
+                            }
+                            state.copy(partners = newPartners, errorMessage = null)
                         }
-                        _uiState.update { it.copy(partners = newPartners, errorMessage = null) }
-                        if (!partnerListenerJobs.containsKey(result.partnerUid)) listenToPartner(result.partnerUid)
+                        savePartnerUids(_uiState.value.partners.map { it.uid })
+                        if (!partnerListenerJobs.containsKey(newPartnerUid)) listenToPartner(newPartnerUid)
                     }
                     ConnectResult.NOT_FOUND ->
                         _uiState.update { it.copy(errorMessage = "코드를 찾을 수 없습니다") }
@@ -276,10 +278,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         // 재설치 후 같은 코드 입력 시 — Firebase에 연결이 살아있으므로 전체 목록 재로드
                         val partnerUids = repository.getPartnerUids(myUid)
                         savePartnerUids(partnerUids)
-                        val newPartners = partnerUids.map { uid ->
-                            _uiState.value.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
+                        _uiState.update { state ->
+                            val newPartners = partnerUids.map { uid ->
+                                state.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
+                            }
+                            state.copy(partners = newPartners, errorMessage = null)
                         }
-                        _uiState.update { it.copy(partners = newPartners, errorMessage = null) }
                         partnerUids.forEach { uid ->
                             if (!partnerListenerJobs.containsKey(uid)) listenToPartner(uid)
                         }
@@ -349,27 +353,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun listenToMyPartnerIds(myUid: String) {
-        var initialized = false
         viewModelScope.launch {
             repository.observePartnerIds(myUid).catch { }.collect { firebaseUids ->
                 val currentUids = _uiState.value.partners.map { it.uid }.toSet()
                 val incoming = firebaseUids.toSet()
                 val removed = currentUids - incoming
-                // 첫 emit: 추가는 loadPersistedState에서 이미 처리 — 제거만 확인
-                val added = if (initialized) incoming - currentUids else emptySet()
-                initialized = true
+                val added = incoming - currentUids
                 if (removed.isEmpty() && added.isEmpty()) return@collect
 
                 removed.forEach { uid ->
                     partnerListenerJobs[uid]?.forEach { it.cancel() }
                     partnerListenerJobs.remove(uid)
                 }
-                added.forEach { uid -> listenToPartner(uid) }
-
-                val newPartners = firebaseUids.map { uid ->
-                    _uiState.value.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
+                _uiState.update { state ->
+                    val newPartners = firebaseUids.map { uid ->
+                        state.partners.find { it.uid == uid } ?: PartnerState(uid = uid)
+                    }
+                    state.copy(partners = newPartners)
                 }
-                _uiState.update { it.copy(partners = newPartners) }
+                added.forEach { uid ->
+                    if (!partnerListenerJobs.containsKey(uid)) listenToPartner(uid)
+                }
                 savePartnerUids(firebaseUids)
             }
         }
