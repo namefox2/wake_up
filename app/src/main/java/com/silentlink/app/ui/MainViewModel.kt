@@ -108,7 +108,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         billingManager.connect(
             onSlotPurchased = { newSlots ->
                 viewModelScope.launch {
-                    val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+                    val myUid = repository.getCurrentUserId()
+                        ?: _uiState.value.myUid.ifEmpty { return@launch }
                     runCatching { repository.setPurchasedSlots(myUid, newSlots) }
                     _uiState.update { it.copy(purchasedSlots = newSlots) }
                 }
@@ -430,10 +431,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (dndManager.isInDndTime(_uiState.value.dndConfig)) return@launch
             repository.sendCommand(partnerUid, "setVolume", level.name)
             restoreInfoJob?.cancel()
-            _uiState.update { it.copy(volumeRestoreInfo = "10분 후 원래 상태로 돌아갑니다") }
+            _uiState.update { it.copy(volumeRestoreInfo = "10분 후 원래 상태로 돌아갑니다", volumeRestorePartnerUid = partnerUid) }
             restoreInfoJob = viewModelScope.launch {
                 delay(10 * 60 * 1000L)
-                _uiState.update { it.copy(volumeRestoreInfo = null) }
+                _uiState.update { it.copy(volumeRestoreInfo = null, volumeRestorePartnerUid = null) }
             }
         }
     }
@@ -609,8 +610,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             when (result) {
-                CouponResult.SUCCESS -> _uiState.update { it.copy(
-                    purchasedSlots = it.purchasedSlots + 1,
+                is CouponResult.SUCCESS -> _uiState.update { it.copy(
+                    purchasedSlots = result.newSlots,
                     couponMessage = "쿠폰이 적용되었습니다! 슬롯 1개가 추가되었습니다.",
                     couponSuccess = true
                 ) }
@@ -674,6 +675,7 @@ data class SilentLinkUiState(
     val theme: AppTheme = AppTheme.DARK,
     val errorMessage: String? = null,
     val volumeRestoreInfo: String? = null,
+    val volumeRestorePartnerUid: String? = null,
     val purchasedSlots: Int = 0,
     val googleEmail: String? = null,
     val selectedAlarmPartnerUid: String = "",

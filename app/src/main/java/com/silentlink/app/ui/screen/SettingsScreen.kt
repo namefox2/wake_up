@@ -87,6 +87,10 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
 
 
+    val versionName = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
+            .getOrDefault("?")
+    }
     var crashLogExists by remember { mutableStateOf(CrashLogger.exists(context)) }
     var showDisconnectDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -309,7 +313,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
             SettingItem(
                 icon = Icons.Default.Info,
                 title = "앱 버전",
-                subtitle = "1.0.0",
+                subtitle = versionName,
                 iconTint = colors.onSurface.copy(alpha = 0.6f)
             )
             if (crashLogExists) {

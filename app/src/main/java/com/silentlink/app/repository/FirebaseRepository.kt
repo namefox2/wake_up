@@ -379,7 +379,7 @@ class FirebaseRepository {
         db.getReference("users/$myUid").updateChildren(
             mapOf("usedCoupons/$upper" to true, "purchasedSlots" to newSlots)
         ).await()
-        return CouponResult.SUCCESS
+        return CouponResult.SUCCESS(newSlots)
     }
 }
 
@@ -389,4 +389,9 @@ sealed class ConnectResult {
     object ALREADY_CONNECTED : ConnectResult()
 }
 enum class LinkResult { LINKED, RESTORED, FAILED }
-enum class CouponResult { SUCCESS, INVALID, ALREADY_USED, MAX_REACHED }
+sealed class CouponResult {
+    data class SUCCESS(val newSlots: Int) : CouponResult()
+    object INVALID : CouponResult()
+    object ALREADY_USED : CouponResult()
+    object MAX_REACHED : CouponResult()
+}
