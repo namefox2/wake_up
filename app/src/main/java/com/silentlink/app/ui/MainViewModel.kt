@@ -30,6 +30,7 @@ import com.silentlink.app.repository.FirebaseRepository
 import com.silentlink.app.repository.LinkResult
 import com.silentlink.app.service.SilentLinkService
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -417,10 +418,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshPartnerStatus() {
         viewModelScope.launch {
-            val fetched = _uiState.value.partners.map { partner ->
-                repository.readPartnerStatus(partner.uid)?.let { partner.copy(status = it) } ?: partner
+            val uids = _uiState.value.partners.map { it.uid }
+            if (uids.isEmpty()) return@launch
+            // 모든 파트너 상태를 병렬로 조회 후 현재 state에 merge
+            // (순차 조회 후 통째 교체 시 real-time 리스너 업데이트가 덮어써지는 버그 방지)
+            val statusMap = uids
+                .map { uid -> uid to async { runCatching { repository.readPartnerStatus(uid) }.getOrNull() } }
+                .associate { (uid, d) -> uid to d.await() }
+            _uiState.update { state ->
+                state.copy(partners = state.partners.map { p ->
+                    statusMap[p.uid]?.let { p.copy(status = it) } ?: p
+                })
             }
-            _uiState.update { it.copy(partners = fetched) }
         }
     }
 
