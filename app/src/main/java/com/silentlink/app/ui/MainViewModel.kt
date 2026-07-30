@@ -440,9 +440,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (dndManager.isInDndTime(_uiState.value.dndConfig)) return@launch
             repository.sendCommand(partnerUid, "setVolume", level.name)
             restoreInfoJob?.cancel()
-            _uiState.update { it.copy(volumeRestoreInfo = "10분 후 원래 상태로 돌아갑니다", volumeRestorePartnerUid = partnerUid) }
+            _uiState.update { it.copy(volumeRestoreInfo = "5분 후 원래 상태로 돌아갑니다", volumeRestorePartnerUid = partnerUid) }
             restoreInfoJob = viewModelScope.launch {
-                delay(10 * 60 * 1000L)
+                delay(5 * 60 * 1000L)
                 _uiState.update { it.copy(volumeRestoreInfo = null, volumeRestorePartnerUid = null) }
             }
         }

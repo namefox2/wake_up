@@ -163,8 +163,22 @@ class SilentLinkService : Service() {
             while (isActive) {
                 val failed = runCatching {
                     repository.observeMyCommands(myUid).collect { commands ->
-                        commands["setVolume"]?.let {
-                            val levelName = it as? String ?: return@let
+                        commands["setVolume"]?.let { raw ->
+                            val levelName: String
+                            val sentAt: Long
+                            when (raw) {
+                                is String -> { levelName = raw; sentAt = 0L }
+                                is Map<*, *> -> {
+                                    levelName = raw["value"] as? String ?: return@let
+                                    sentAt = (raw["sentAt"] as? Long) ?: 0L
+                                }
+                                else -> return@let
+                            }
+                            // 2분 이상 된 명령은 서비스 재시작 시 재수신된 오래된 명령으로 판단해 무시
+                            if (sentAt > 0 && System.currentTimeMillis() - sentAt > 2 * 60 * 1000L) {
+                                runCatching { repository.deleteCommand(myUid, "setVolume") }
+                                return@let
+                            }
                             val level = runCatching {
                                 VolumeLevel.valueOf(levelName)
                             }.getOrNull() ?: return@let
@@ -246,12 +260,12 @@ class SilentLinkService : Service() {
     }
 
     private fun scheduleRestore(original: VolumeLevel) {
-        val restoreAtMs = System.currentTimeMillis() + 10 * 60 * 1000L
+        val restoreAtMs = System.currentTimeMillis() + 5 * 60 * 1000L
         restoreLevel = original
         servicePrefs.edit()
             .putString(KEY_RESTORE_LEVEL, original.name)
             .putLong(KEY_RESTORE_AT_MS, restoreAtMs)
-            .apply()
+            .commit()  // commit() — 프로세스 강제 종료 시에도 prefs 유실 방지
         restoreJob?.cancel()
         restoreJob = scope.launch {
             val delayMs = restoreAtMs - System.currentTimeMillis()
@@ -336,7 +350,7 @@ class SilentLinkService : Service() {
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_silent_mode)
             .setContentTitle("볼륨 설정 변경됨")
-            .setContentText("10분 후 원래 상태로 돌아갑니다")
+            .setContentText("5분 후 원래 상태로 돌아갑니다")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()

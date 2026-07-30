@@ -220,7 +220,8 @@ class FirebaseRepository {
     }
 
     suspend fun sendCommand(partnerUid: String, command: String, value: Any) {
-        db.getReference("devices/$partnerUid/commands/$command").setValue(value).await()
+        val payload = mapOf("value" to value, "sentAt" to System.currentTimeMillis())
+        db.getReference("devices/$partnerUid/commands/$command").setValue(payload).await()
     }
 
     suspend fun deleteCommand(uid: String, command: String) {
