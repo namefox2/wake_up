@@ -104,7 +104,7 @@ class AlarmRingService : Service() {
         if (shouldSound) startRinging()
         if (shouldVibrate) startVibrating()
 
-        // 10분 후 자동 해제
+        // 1분 후 자동 해제
         autoDismissHandler.removeCallbacks(autoDismissRunnable)
         autoDismissHandler.postDelayed(autoDismissRunnable, AUTO_DISMISS_MS)
 

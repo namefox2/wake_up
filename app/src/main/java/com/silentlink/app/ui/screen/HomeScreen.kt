@@ -600,7 +600,7 @@ private fun PartnerCard(
         AlertDialog(
             onDismissRequest = { pendingLevel = null },
             title = { Text("${level.icon} $levelDesc 모드로 전환", fontWeight = FontWeight.Bold) },
-            text = { Text("$displayName 기기를 $levelDesc 상태로 전환할까요?\n\n10분 후 원래 상태로 자동 복원됩니다") },
+            text = { Text("$displayName 기기를 $levelDesc 상태로 전환할까요?\n\n5분 후 원래 상태로 자동 복원됩니다") },
             confirmButton = {
                 TextButton(onClick = { onVolumeSelect(level); pendingLevel = null }) {
                     Text("전환", color = levelColor, fontWeight = FontWeight.Bold)

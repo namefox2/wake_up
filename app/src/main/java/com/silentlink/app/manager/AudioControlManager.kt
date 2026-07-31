@@ -36,10 +36,12 @@ class AudioControlManager(private val context: Context) {
         return try {
             when (level) {
                 VolumeLevel.MUTE -> {
+                    exitDndIfActive()  // DND 활성 상태면 먼저 해제 시도
                     try {
                         am.ringerMode = AudioManager.RINGER_MODE_SILENT
                     } catch (_: SecurityException) {
-                        am.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+                        // 무음 실패 시 진동으로 폴백 (진동도 DND로 막힐 수 있으므로 별도 try-catch)
+                        try { am.ringerMode = AudioManager.RINGER_MODE_VIBRATE } catch (_: SecurityException) { }
                     }
                     true
                 }
@@ -63,12 +65,10 @@ class AudioControlManager(private val context: Context) {
     }
 
     private fun exitDndIfActive() {
-        val am = audioManager ?: return
-        if (am.ringerMode == AudioManager.RINGER_MODE_SILENT) {
-            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            if (nm?.isNotificationPolicyAccessGranted == true) {
-                nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
-            }
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        if (nm.isNotificationPolicyAccessGranted &&
+            nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) {
+            nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
         }
     }
 }

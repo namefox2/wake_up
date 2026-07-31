@@ -164,19 +164,12 @@ class SilentLinkService : Service() {
                 val failed = runCatching {
                     repository.observeMyCommands(myUid).collect { commands ->
                         commands["setVolume"]?.let { raw ->
-                            val levelName: String
-                            val sentAt: Long
-                            when (raw) {
-                                is String -> { levelName = raw; sentAt = 0L }
-                                is Map<*, *> -> {
-                                    levelName = raw["value"] as? String ?: return@let
-                                    sentAt = (raw["sentAt"] as? Long) ?: 0L
-                                }
-                                else -> return@let
-                            }
-                            // 2분 이상 된 명령은 서비스 재시작 시 재수신된 오래된 명령으로 판단해 무시
+                            val levelName = raw as? String ?: return@let
+                            // setVolumeAt: 발송 시각 (2분 이상 지난 명령은 재시작 후 재수신된 것으로 판단)
+                            val sentAt = (commands["setVolumeAt"] as? Long) ?: 0L
                             if (sentAt > 0 && System.currentTimeMillis() - sentAt > 2 * 60 * 1000L) {
                                 runCatching { repository.deleteCommand(myUid, "setVolume") }
+                                runCatching { repository.deleteCommand(myUid, "setVolumeAt") }
                                 return@let
                             }
                             val level = runCatching {
@@ -187,6 +180,7 @@ class SilentLinkService : Service() {
                             val dndConfig = DndPrefs.load(this@SilentLinkService)
                             if (dndManager.isInDndTime(dndConfig)) {
                                 runCatching { repository.deleteCommand(myUid, "setVolume") }
+                                runCatching { repository.deleteCommand(myUid, "setVolumeAt") }
                                 return@let
                             }
 
@@ -203,6 +197,7 @@ class SilentLinkService : Service() {
                                 runCatching { repository.updateVolumeStatus(myUid, actualLevel) }
                             }
                             runCatching { repository.deleteCommand(myUid, "setVolume") }
+                            runCatching { repository.deleteCommand(myUid, "setVolumeAt") }
                         }
                     }
                 }.isFailure

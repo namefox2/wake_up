@@ -220,8 +220,14 @@ class FirebaseRepository {
     }
 
     suspend fun sendCommand(partnerUid: String, command: String, value: Any) {
-        val payload = mapOf("value" to value, "sentAt" to System.currentTimeMillis())
-        db.getReference("devices/$partnerUid/commands/$command").setValue(payload).await()
+        db.getReference("devices/$partnerUid/commands/$command").setValue(value).await()
+    }
+
+    // setVolume + 타임스탬프를 원자적으로 기록 (신선도 검사용)
+    suspend fun sendVolumeCommand(partnerUid: String, level: String) {
+        db.getReference("devices/$partnerUid/commands").updateChildren(
+            mapOf("setVolume" to level, "setVolumeAt" to System.currentTimeMillis())
+        ).await()
     }
 
     suspend fun deleteCommand(uid: String, command: String) {

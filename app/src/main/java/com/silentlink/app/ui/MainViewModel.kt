@@ -438,7 +438,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val partner = _uiState.value.partners.find { it.uid == partnerUid } ?: return@launch
             if (!partner.status.isAccessAllowed) return@launch
             if (dndManager.isInDndTime(_uiState.value.dndConfig)) return@launch
-            repository.sendCommand(partnerUid, "setVolume", level.name)
+            repository.sendVolumeCommand(partnerUid, level.name)
             restoreInfoJob?.cancel()
             _uiState.update { it.copy(volumeRestoreInfo = "5분 후 원래 상태로 돌아갑니다", volumeRestorePartnerUid = partnerUid) }
             restoreInfoJob = viewModelScope.launch {
