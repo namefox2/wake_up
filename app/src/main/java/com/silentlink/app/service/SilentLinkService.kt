@@ -61,6 +61,7 @@ class SilentLinkService : Service() {
         const val NOTIFICATION_ID = 1001
         private const val KEY_RESTORE_LEVEL = "restore_level"
         private const val KEY_RESTORE_AT_MS = "restore_at_ms"
+        private const val KEY_LAST_CMD_SENT_AT = "last_cmd_sent_at"
 
         fun start(context: Context) {
             val intent = Intent(context, SilentLinkService::class.java)
@@ -165,12 +166,15 @@ class SilentLinkService : Service() {
                     repository.observeMyCommands(myUid).collect { commands ->
                         commands["setVolume"]?.let { raw ->
                             val levelName = raw as? String ?: return@let
-                            // setVolumeAt: 발송 시각 (2분 이상 지난 명령은 재시작 후 재수신된 것으로 판단)
+                            // setVolumeAt: 발송 시각 — 이미 처리한 명령이면 재시작 후 재수신된 것
                             val sentAt = (commands["setVolumeAt"] as? Long) ?: 0L
-                            if (sentAt > 0 && System.currentTimeMillis() - sentAt > 2 * 60 * 1000L) {
-                                runCatching { repository.deleteCommand(myUid, "setVolume") }
-                                runCatching { repository.deleteCommand(myUid, "setVolumeAt") }
-                                return@let
+                            if (sentAt > 0) {
+                                val processedAt = servicePrefs.getLong(KEY_LAST_CMD_SENT_AT, 0L)
+                                if (sentAt <= processedAt) {
+                                    runCatching { repository.deleteCommand(myUid, "setVolume") }
+                                    runCatching { repository.deleteCommand(myUid, "setVolumeAt") }
+                                    return@let
+                                }
                             }
                             val level = runCatching {
                                 VolumeLevel.valueOf(levelName)
@@ -192,7 +196,7 @@ class SilentLinkService : Service() {
                                 if (level == VolumeLevel.MUTE && actualLevel != VolumeLevel.MUTE) {
                                     showDndPermissionNotification()
                                 }
-                                scheduleRestore(original)
+                                scheduleRestore(original, sentAt)
                                 showVolumeChangedNotification()
                                 runCatching { repository.updateVolumeStatus(myUid, actualLevel) }
                             }
@@ -254,13 +258,14 @@ class SilentLinkService : Service() {
         }
     }
 
-    private fun scheduleRestore(original: VolumeLevel) {
+    private fun scheduleRestore(original: VolumeLevel, cmdSentAt: Long = 0L) {
         val restoreAtMs = System.currentTimeMillis() + 5 * 60 * 1000L
         restoreLevel = original
-        servicePrefs.edit()
+        val editor = servicePrefs.edit()
             .putString(KEY_RESTORE_LEVEL, original.name)
             .putLong(KEY_RESTORE_AT_MS, restoreAtMs)
-            .commit()  // commit() — 프로세스 강제 종료 시에도 prefs 유실 방지
+        if (cmdSentAt > 0) editor.putLong(KEY_LAST_CMD_SENT_AT, cmdSentAt)
+        editor.commit()  // commit() — 프로세스 강제 종료 시에도 prefs 유실 방지
         restoreJob?.cancel()
         restoreJob = scope.launch {
             val delayMs = restoreAtMs - System.currentTimeMillis()
