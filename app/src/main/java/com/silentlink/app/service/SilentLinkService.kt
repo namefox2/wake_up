@@ -92,13 +92,13 @@ class SilentLinkService : Service() {
         createNotificationChannel()
         ServiceLogger.log(this, "SERVICE", "onCreate [C] 채널 생성완료")
         try {
-            when {
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
-                    startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ->
-                    startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-                else ->
-                    startForeground(NOTIFICATION_ID, buildNotification())
+            // API 34+: specialUse 타입을 명시해야 manifest 선언과 일치
+            // API 28-33: 타입 없이 호출 — API 33 이하에서 manifest의 specialUse 선언과
+            //   DATA_SYNC 타입 불일치로 startForeground()가 무시되어 5초 후 크래시 발생하는 문제 방지
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(NOTIFICATION_ID, buildNotification())
             }
             ServiceLogger.log(this, "SERVICE", "onCreate [D] startForeground 성공")
         } catch (e: Exception) {
