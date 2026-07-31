@@ -81,6 +81,10 @@ fun HomeScreen(viewModel: MainViewModel) {
             if (!canWriteSettings || !canSetMute) showPermDialog = true
         }
     }
+    // 두 권한이 모두 허용되면 팝업 자동 닫기
+    LaunchedEffect(canWriteSettings, canSetMute) {
+        if (canWriteSettings && canSetMute) showPermDialog = false
+    }
 
     if (showSlotLoginDialog) {
         AlertDialog(
