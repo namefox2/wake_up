@@ -223,11 +223,14 @@ class FirebaseRepository {
         db.getReference("devices/$partnerUid/commands/$command").setValue(value).await()
     }
 
-    // setVolume + 타임스탬프를 원자적으로 기록 (신선도 검사용)
-    suspend fun sendVolumeCommand(partnerUid: String, level: String) {
-        db.getReference("devices/$partnerUid/commands").updateChildren(
-            mapOf("setVolume" to level, "setVolumeAt" to System.currentTimeMillis())
-        ).await()
+    // setVolume + 타임스탬프 + 복원 시간을 원자적으로 기록
+    suspend fun sendVolumeCommand(partnerUid: String, level: String, restoreMs: Long = 5 * 60 * 1000L) {
+        val map = mutableMapOf<String, Any>(
+            "setVolume" to level,
+            "setVolumeAt" to System.currentTimeMillis()
+        )
+        if (restoreMs != Long.MAX_VALUE) map["setVolumeRestoreMs"] = restoreMs
+        db.getReference("devices/$partnerUid/commands").updateChildren(map).await()
     }
 
     suspend fun deleteCommand(uid: String, command: String) {

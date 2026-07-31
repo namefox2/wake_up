@@ -40,6 +40,7 @@ import com.silentlink.app.ads.BannerAdView
 import com.silentlink.app.ui.util.findActivity
 import com.silentlink.app.manager.AudioControlManager
 import com.silentlink.app.model.PartnerState
+import com.silentlink.app.model.RestoreDuration
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.ui.MainViewModel
@@ -265,6 +266,8 @@ fun HomeScreen(viewModel: MainViewModel) {
                         volumeRestoreInfo = uiState.volumeRestoreInfo,
                         volumeRestorePartnerUid = uiState.volumeRestorePartnerUid,
                         deviceNames = uiState.deviceNames,
+                        restoreDuration = uiState.restoreDuration,
+                        onRestoreDurationChange = { viewModel.setRestoreDuration(it) },
                         onVolumeSelect = { uid, level -> viewModel.sendVolumeCommandTo(uid, level) },
                         onDisconnect = { uid -> viewModel.disconnectFromPartner(uid) },
                         onRemoveController = { uid -> viewModel.removeController(uid) },
@@ -308,6 +311,8 @@ private fun PartnerListTab(
     volumeRestoreInfo: String?,
     volumeRestorePartnerUid: String?,
     deviceNames: Map<String, String>,
+    restoreDuration: RestoreDuration,
+    onRestoreDurationChange: (RestoreDuration) -> Unit,
     onVolumeSelect: (String, VolumeLevel) -> Unit,
     onDisconnect: (String) -> Unit,
     onRemoveController: (String) -> Unit,
@@ -324,6 +329,36 @@ private fun PartnerListTab(
     var partnerCodeInput by remember { mutableStateOf("") }
 
     val canAddMore = partners.size < maxDevices
+
+    // 복원 시간 선택
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("복원", fontSize = 12.sp, color = colors.onSurface.copy(alpha = 0.5f))
+        RestoreDuration.entries.forEach { option ->
+            val selected = option == restoreDuration
+            OutlinedButton(
+                onClick = { onRestoreDurationChange(option) },
+                modifier = Modifier.height(30.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = if (selected) AccentBlue.copy(alpha = 0.15f) else Color.Transparent,
+                    contentColor = if (selected) AccentBlue else colors.onSurface.copy(alpha = 0.55f)
+                ),
+                border = BorderStroke(
+                    if (selected) 1.5.dp else 1.dp,
+                    if (selected) AccentBlue else colors.outline.copy(alpha = 0.3f)
+                )
+            ) {
+                Text(option.label, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(10.dp))
 
     // 연결 추가 버튼
     Row(
@@ -434,6 +469,7 @@ private fun PartnerListTab(
                     canWriteSettings = canWriteSettings,
                     canSetMute = canSetMute,
                     restoreInfo = if (partner.uid == volumeRestorePartnerUid) volumeRestoreInfo else null,
+                    restoreDurationLabel = restoreDuration.label,
                     onVolumeSelect = { level -> onVolumeSelect(partner.uid, level) },
                     onDisconnect = { onDisconnect(partner.uid) },
                     onRename = { name -> onSetDeviceName(partner.uid, name) },
@@ -545,6 +581,7 @@ private fun PartnerCard(
     canWriteSettings: Boolean,
     canSetMute: Boolean,
     restoreInfo: String?,
+    restoreDurationLabel: String,
     onVolumeSelect: (VolumeLevel) -> Unit,
     onDisconnect: () -> Unit,
     onRename: (String) -> Unit,
@@ -604,7 +641,11 @@ private fun PartnerCard(
         AlertDialog(
             onDismissRequest = { pendingLevel = null },
             title = { Text("${level.icon} $levelDesc 모드로 전환", fontWeight = FontWeight.Bold) },
-            text = { Text("$displayName 기기를 $levelDesc 상태로 전환할까요?\n\n5분 후 원래 상태로 자동 복원됩니다") },
+            text = {
+                val restoreNote = if (restoreDurationLabel == "무제한") "자동 복원 없음"
+                                  else "$restoreDurationLabel 후 원래 상태로 자동 복원됩니다"
+                Text("$displayName 기기를 $levelDesc 상태로 전환할까요?\n\n$restoreNote")
+            },
             confirmButton = {
                 TextButton(onClick = { onVolumeSelect(level); pendingLevel = null }) {
                     Text("전환", color = levelColor, fontWeight = FontWeight.Bold)

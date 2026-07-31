@@ -22,6 +22,7 @@ import com.silentlink.app.model.DeviceStatus
 import com.silentlink.app.model.DndConfig
 import com.silentlink.app.model.PartnerState
 import com.silentlink.app.model.RemoteAlarm
+import com.silentlink.app.model.RestoreDuration
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
 import com.silentlink.app.repository.ConnectResult
@@ -97,11 +98,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val KEY_MY_CODE      = stringPreferencesKey("my_code")
         val KEY_PARTNER_UIDS = stringPreferencesKey("partner_uids")   // 쉼표 구분
         val KEY_PARTNER_UID  = stringPreferencesKey("partner_uid")    // 구버전 마이그레이션용
-        val KEY_THEME        = stringPreferencesKey("theme")
-        val KEY_DND_CONFIG   = stringPreferencesKey("dnd_config")
-        val KEY_MY_ACTIVITY  = stringPreferencesKey("my_activity")
-        val KEY_DEVICE_NAMES = stringPreferencesKey("device_names")
-        val KEY_AD_CONSENT   = booleanPreferencesKey("ad_consent")
+        val KEY_THEME            = stringPreferencesKey("theme")
+        val KEY_DND_CONFIG       = stringPreferencesKey("dnd_config")
+        val KEY_MY_ACTIVITY      = stringPreferencesKey("my_activity")
+        val KEY_DEVICE_NAMES     = stringPreferencesKey("device_names")
+        val KEY_AD_CONSENT       = booleanPreferencesKey("ad_consent")
+        val KEY_RESTORE_DURATION = stringPreferencesKey("restore_duration")
     }
 
     init {
@@ -174,6 +176,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }.getOrDefault(emptyMap())
 
         val adConsent = prefs[KEY_AD_CONSENT] ?: false
+        val restoreDuration = runCatching { RestoreDuration.valueOf(prefs[KEY_RESTORE_DURATION] ?: "") }.getOrDefault(RestoreDuration.FIVE_MIN)
         _uiState.update { it.copy(
             myCode     = myCode,
             myUid      = myUid,
@@ -185,7 +188,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             purchasedSlots = purchasedSlots,
             googleEmail = repository.getGoogleEmail(),
             deviceNames = deviceNames,
-            adConsentAccepted = adConsent
+            adConsentAccepted = adConsent,
+            restoreDuration = restoreDuration
         ) }
         DndPrefs.save(context, dndConfig)
 
@@ -438,12 +442,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val partner = _uiState.value.partners.find { it.uid == partnerUid } ?: return@launch
             if (!partner.status.isAccessAllowed) return@launch
             if (dndManager.isInDndTime(_uiState.value.dndConfig)) return@launch
-            repository.sendVolumeCommand(partnerUid, level.name)
+            val duration = _uiState.value.restoreDuration
+            repository.sendVolumeCommand(partnerUid, level.name, duration.ms)
             restoreInfoJob?.cancel()
-            _uiState.update { it.copy(volumeRestoreInfo = "5분 후 원래 상태로 돌아갑니다", volumeRestorePartnerUid = partnerUid) }
+            val infoText = if (duration == RestoreDuration.UNLIMITED) "자동 복원 없음"
+                           else "${duration.label} 후 원래 상태로 돌아갑니다"
+            _uiState.update { it.copy(volumeRestoreInfo = infoText, volumeRestorePartnerUid = partnerUid) }
             restoreInfoJob = viewModelScope.launch {
-                delay(5 * 60 * 1000L)
-                _uiState.update { it.copy(volumeRestoreInfo = null, volumeRestorePartnerUid = null) }
+                if (duration != RestoreDuration.UNLIMITED) {
+                    delay(duration.ms)
+                    _uiState.update { it.copy(volumeRestoreInfo = null, volumeRestorePartnerUid = null) }
+                }
+            }
+        }
+    }
+
+    fun setRestoreDuration(duration: RestoreDuration) {
+        _uiState.update { it.copy(restoreDuration = duration) }
+        viewModelScope.launch {
+            getApplication<Application>().appDataStore.edit { prefs ->
+                prefs[KEY_RESTORE_DURATION] = duration.name
             }
         }
     }
@@ -694,7 +712,8 @@ data class SilentLinkUiState(
     val couponSuccess: Boolean = false,
     val adConsentAccepted: Boolean = false,
     val isOnboarding: Boolean = false,
-    val isDeletingAccount: Boolean = false
+    val isDeletingAccount: Boolean = false,
+    val restoreDuration: RestoreDuration = RestoreDuration.FIVE_MIN
 ) {
     val isConnected: Boolean get() = partners.isNotEmpty()
     val maxDevices: Int get() = 1 + purchasedSlots

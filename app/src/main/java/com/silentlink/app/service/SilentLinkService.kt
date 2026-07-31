@@ -188,6 +188,7 @@ class SilentLinkService : Service() {
                                 return@let
                             }
 
+                            val restoreMs = (commands["setVolumeRestoreMs"] as? Long) ?: (5 * 60 * 1000L)
                             val original = restoreLevel ?: audioManager.getCurrentVolumeLevel()
                             val ok = audioManager.setVolumeLevel(level)
                             val actualLevel = audioManager.getCurrentVolumeLevel()
@@ -196,8 +197,8 @@ class SilentLinkService : Service() {
                                 if (level == VolumeLevel.MUTE && actualLevel != VolumeLevel.MUTE) {
                                     showDndPermissionNotification()
                                 }
-                                scheduleRestore(original, sentAt)
-                                showVolumeChangedNotification()
+                                scheduleRestore(original, sentAt, restoreMs)
+                                showVolumeChangedNotification(restoreMs)
                                 runCatching { repository.updateVolumeStatus(myUid, actualLevel) }
                             }
                             runCatching { repository.deleteCommand(myUid, "setVolume") }
@@ -258,20 +259,26 @@ class SilentLinkService : Service() {
         }
     }
 
-    private fun scheduleRestore(original: VolumeLevel, cmdSentAt: Long = 0L) {
-        val restoreAtMs = System.currentTimeMillis() + 5 * 60 * 1000L
-        restoreLevel = original
+    private fun scheduleRestore(original: VolumeLevel, cmdSentAt: Long = 0L, restoreMs: Long = 5 * 60 * 1000L) {
         val editor = servicePrefs.edit()
-            .putString(KEY_RESTORE_LEVEL, original.name)
-            .putLong(KEY_RESTORE_AT_MS, restoreAtMs)
+        if (restoreMs == Long.MAX_VALUE) {
+            // 무제한: 복원 스케줄 없음
+            restoreJob?.cancel()
+            restoreLevel = null
+            editor.remove(KEY_RESTORE_LEVEL).remove(KEY_RESTORE_AT_MS)
+        } else {
+            val restoreAtMs = System.currentTimeMillis() + restoreMs
+            restoreLevel = original
+            editor.putString(KEY_RESTORE_LEVEL, original.name).putLong(KEY_RESTORE_AT_MS, restoreAtMs)
+            restoreJob?.cancel()
+            restoreJob = scope.launch {
+                val delayMs = restoreAtMs - System.currentTimeMillis()
+                if (delayMs > 0) delay(delayMs)
+                doRestore()
+            }
+        }
         if (cmdSentAt > 0) editor.putLong(KEY_LAST_CMD_SENT_AT, cmdSentAt)
         editor.commit()  // commit() — 프로세스 강제 종료 시에도 prefs 유실 방지
-        restoreJob?.cancel()
-        restoreJob = scope.launch {
-            val delayMs = restoreAtMs - System.currentTimeMillis()
-            if (delayMs > 0) delay(delayMs)
-            doRestore()
-        }
     }
 
     private fun checkPendingRestore() {
@@ -344,13 +351,14 @@ class SilentLinkService : Service() {
         nm.notify(9003, notification)
     }
 
-    private fun showVolumeChangedNotification() {
+    private fun showVolumeChangedNotification(restoreMs: Long = 5 * 60 * 1000L) {
         val nm = getSystemService(NotificationManager::class.java) ?: return
-        val channelId = "silentlink_alerts"
-        val notification = NotificationCompat.Builder(this, channelId)
+        val text = if (restoreMs == Long.MAX_VALUE) "볼륨이 변경되었습니다 (자동 복원 없음)"
+                   else "${restoreMs / 60000}분 후 원래 상태로 돌아갑니다"
+        val notification = NotificationCompat.Builder(this, "silentlink_alerts")
             .setSmallIcon(android.R.drawable.ic_lock_silent_mode)
             .setContentTitle("볼륨 설정 변경됨")
-            .setContentText("5분 후 원래 상태로 돌아갑니다")
+            .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()
