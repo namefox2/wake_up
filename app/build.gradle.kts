@@ -13,8 +13,8 @@ android {
         applicationId = "com.silentlink.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 23
-        versionName = "1.22"
+        versionCode = 24
+        versionName = "1.23"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -38,6 +38,12 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    packaging {
+        jniLibs {
+            // 16KB 페이지 크기 호환: .so 파일을 압축 없이 저장해 mmap 직접 매핑 허용
+            useLegacyPackaging = false
+        }
     }
 }
 
