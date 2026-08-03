@@ -188,7 +188,9 @@ class SilentLinkService : Service() {
                                 return@let
                             }
 
-                            val restoreMs = (commands["setVolumeRestoreMs"] as? Long) ?: (5 * 60 * 1000L)
+                            val rawRestoreMs = (commands["setVolumeRestoreMs"] as? Long) ?: (5 * 60 * 1000L)
+                            // 0L은 무제한을 의미 (Long.MAX_VALUE로 변환)
+                            val restoreMs = if (rawRestoreMs == 0L) Long.MAX_VALUE else rawRestoreMs
                             val original = restoreLevel ?: audioManager.getCurrentVolumeLevel()
                             val ok = audioManager.setVolumeLevel(level)
                             val actualLevel = audioManager.getCurrentVolumeLevel()
@@ -203,6 +205,7 @@ class SilentLinkService : Service() {
                             }
                             runCatching { repository.deleteCommand(myUid, "setVolume") }
                             runCatching { repository.deleteCommand(myUid, "setVolumeAt") }
+                            runCatching { repository.deleteCommand(myUid, "setVolumeRestoreMs") }
                         }
                     }
                 }.isFailure

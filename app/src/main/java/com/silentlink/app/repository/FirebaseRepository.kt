@@ -224,12 +224,14 @@ class FirebaseRepository {
     }
 
     // setVolume + 타임스탬프 + 복원 시간을 원자적으로 기록
+    // restoreMs == Long.MAX_VALUE(무제한)일 때는 0L로 전송 — 수신측이 0L을 무제한으로 해석
     suspend fun sendVolumeCommand(partnerUid: String, level: String, restoreMs: Long = 5 * 60 * 1000L) {
+        val restoreMsToSend = if (restoreMs == Long.MAX_VALUE) 0L else restoreMs
         val map = mutableMapOf<String, Any>(
             "setVolume" to level,
-            "setVolumeAt" to System.currentTimeMillis()
+            "setVolumeAt" to System.currentTimeMillis(),
+            "setVolumeRestoreMs" to restoreMsToSend
         )
-        if (restoreMs != Long.MAX_VALUE) map["setVolumeRestoreMs"] = restoreMs
         db.getReference("devices/$partnerUid/commands").updateChildren(map).await()
     }
 
