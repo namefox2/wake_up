@@ -76,7 +76,7 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
         billingClient.queryProductDetailsAsync(
             QueryProductDetailsParams.newBuilder().setProductList(productList).build()
         ) { _, details ->
-            productDetailsList = details.toList()
+            productDetailsList = details
         }
     }
 
