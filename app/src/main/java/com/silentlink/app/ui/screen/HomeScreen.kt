@@ -327,6 +327,7 @@ private fun PartnerListTab(
     val colors = MaterialTheme.colorScheme
     var showConnectInput by remember { mutableStateOf(false) }
     var partnerCodeInput by remember { mutableStateOf("") }
+    val dndManager = remember { DndManager(LocalContext.current) }
 
     val canAddMore = partners.size < maxDevices
 
@@ -460,7 +461,6 @@ private fun PartnerListTab(
             }
         }
     } else {
-        val dndManager = remember { DndManager(LocalContext.current) }
         partners.forEachIndexed { index, partner ->
             key(partner.uid) {
                 if (index > 0) Spacer(modifier = Modifier.height(12.dp))
