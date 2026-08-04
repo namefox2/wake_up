@@ -460,9 +460,13 @@ private fun PartnerListTab(
             }
         }
     } else {
+        val dndManager = remember { DndManager(LocalContext.current) }
         partners.forEachIndexed { index, partner ->
             key(partner.uid) {
                 if (index > 0) Spacer(modifier = Modifier.height(12.dp))
+                val isPartnerInDnd = remember(partner.dndConfig) {
+                    partner.dndConfig?.let { dndManager.isInDndTime(it) } == true
+                }
                 PartnerCard(
                     partner = partner,
                     name = deviceNames[partner.uid],
@@ -470,6 +474,7 @@ private fun PartnerListTab(
                     canSetMute = canSetMute,
                     restoreInfo = if (partner.uid == volumeRestorePartnerUid) volumeRestoreInfo else null,
                     restoreDurationLabel = restoreDuration.label,
+                    isPartnerInDnd = isPartnerInDnd,
                     onVolumeSelect = { level -> onVolumeSelect(partner.uid, level) },
                     onDisconnect = { onDisconnect(partner.uid) },
                     onRename = { name -> onSetDeviceName(partner.uid, name) },
@@ -582,6 +587,7 @@ private fun PartnerCard(
     canSetMute: Boolean,
     restoreInfo: String?,
     restoreDurationLabel: String,
+    isPartnerInDnd: Boolean = false,
     onVolumeSelect: (VolumeLevel) -> Unit,
     onDisconnect: () -> Unit,
     onRename: (String) -> Unit,
@@ -714,10 +720,23 @@ private fun PartnerCard(
                             }
                         )
                     }
-                    Text(
-                        "${status.volumeLevel.icon} ${status.volumeLevel.label}",
-                        fontSize = 12.sp, color = statusColor
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${status.volumeLevel.icon} ${status.volumeLevel.label}",
+                            fontSize = 12.sp, color = statusColor
+                        )
+                        if (isPartnerInDnd) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(AccentBlue.copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text("🌙 방해금지", fontSize = 9.sp, color = AccentBlue)
+                            }
+                        }
+                    }
                 }
                 if (!hasActivity) {
                     IconButton(onClick = { showDisconnectDialog = true }, modifier = Modifier.size(32.dp)) {

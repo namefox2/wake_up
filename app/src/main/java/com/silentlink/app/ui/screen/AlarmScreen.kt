@@ -193,13 +193,13 @@ fun AlarmScreen(viewModel: MainViewModel) {
                 if (uiState.alarmsFromPartners.isNotEmpty()) {
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
-                        SectionLabel("상대방이 나에게 설정한 알람")
+                        SectionLabel("내 기기에 설정된 알람 (상대방 설정)")
                     }
                     items(uiState.alarmsFromPartners, key = { "p_${it.id}" }) { alarm ->
                         AlarmCard(
                             alarm = alarm,
-                            readOnly = true,
-                            onToggle = {},
+                            readOnly = false,
+                            onToggle = { viewModel.toggleMyAlarm(alarm.id, !alarm.isEnabled) },
                             onDelete = { viewModel.deleteMyAlarm(alarm.id) },
                             onClick = {}
                         )
@@ -322,10 +322,10 @@ private fun AlarmCard(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    if (alarm.days.isEmpty()) {
-                        DayChip("매일", active = alarm.isEnabled)
-                    } else {
-                        DAY_LABELS_ALARM.forEachIndexed { idx, label ->
+                    when {
+                        alarm.isOneTime -> DayChip("한번만", active = alarm.isEnabled)
+                        alarm.days.isEmpty() -> DayChip("매일", active = alarm.isEnabled)
+                        else -> DAY_LABELS_ALARM.forEachIndexed { idx, label ->
                             DayChip(label, active = (idx + 1) in alarm.days && alarm.isEnabled)
                         }
                     }
@@ -412,8 +412,9 @@ private fun AlarmEditDialog(
         )
     }
     var minute by remember { mutableIntStateOf(alarm?.minute ?: 0) }
-    var selectedDays by remember { mutableStateOf(alarm?.days ?: setOf(1, 2, 3, 4, 5)) }
-    var everyDay by remember { mutableStateOf(alarm?.days?.isEmpty() ?: false) }
+    var selectedDays by remember { mutableStateOf(alarm?.days?.ifEmpty { setOf(1, 2, 3, 4, 5) } ?: setOf(1, 2, 3, 4, 5)) }
+    var everyDay by remember { mutableStateOf(alarm != null && alarm.days.isEmpty() && !alarm.isOneTime) }
+    var isOneTime by remember { mutableStateOf(alarm?.isOneTime ?: false) }
     var alarmSound by remember { mutableStateOf(alarm?.alarmSound ?: true) }
     var alarmVibrate by remember { mutableStateOf(alarm?.alarmVibrate ?: true) }
 
@@ -488,21 +489,22 @@ private fun AlarmEditDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // 프리셋 버튼
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        "매일" to emptySet<Int>(),
-                        "평일" to setOf(1, 2, 3, 4, 5),
-                        "주말" to setOf(6, 7)
-                    ).forEach { (preset, days) ->
-                        val isSelected = if (preset == "매일") everyDay
-                        else !everyDay && selectedDays == days
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("매일", "평일", "주말", "한번만").forEach { preset ->
+                        val isSelected = when (preset) {
+                            "한번만" -> isOneTime
+                            "매일" -> everyDay && !isOneTime
+                            "평일" -> !everyDay && !isOneTime && selectedDays == setOf(1, 2, 3, 4, 5)
+                            "주말" -> !everyDay && !isOneTime && selectedDays == setOf(6, 7)
+                            else -> false
+                        }
                         OutlinedButton(
                             onClick = {
-                                if (preset == "매일") {
-                                    everyDay = true
-                                } else {
-                                    everyDay = false
-                                    selectedDays = days
+                                when (preset) {
+                                    "한번만" -> { isOneTime = true; everyDay = false }
+                                    "매일" -> { isOneTime = false; everyDay = true }
+                                    "평일" -> { isOneTime = false; everyDay = false; selectedDays = setOf(1, 2, 3, 4, 5) }
+                                    "주말" -> { isOneTime = false; everyDay = false; selectedDays = setOf(6, 7) }
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -523,7 +525,8 @@ private fun AlarmEditDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 개별 요일
+                // 개별 요일 (한번만 선택 시 비활성화)
+                if (!isOneTime) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     DAY_LABELS_ALARM.forEachIndexed { idx, dayLabel ->
                         val dayNum = idx + 1
@@ -541,6 +544,7 @@ private fun AlarmEditDialog(
                             )
                         )
                     }
+                }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -615,11 +619,12 @@ private fun AlarmEditDialog(
                                     label = label,
                                     hour = hour24,
                                     minute = minute,
-                                    days = if (everyDay) emptySet() else selectedDays,
+                                    days = if (isOneTime || everyDay) emptySet() else selectedDays,
                                     isEnabled = alarm?.isEnabled ?: true,
                                     createdAt = alarm?.createdAt ?: System.currentTimeMillis(),
                                     alarmSound = alarmSound,
-                                    alarmVibrate = alarmVibrate
+                                    alarmVibrate = alarmVibrate,
+                                    isOneTime = isOneTime
                                 )
                             )
                         },

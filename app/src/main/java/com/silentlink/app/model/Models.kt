@@ -3,7 +3,8 @@ package com.silentlink.app.model
 data class PartnerState(
     val uid: String = "",
     val status: DeviceStatus = DeviceStatus(),
-    val alarmsForThem: List<RemoteAlarm> = emptyList()
+    val alarmsForThem: List<RemoteAlarm> = emptyList(),
+    val dndConfig: DndConfig? = null
 )
 
 data class ControllerState(
@@ -56,7 +57,8 @@ data class RemoteAlarm(
     val isEnabled: Boolean = true,
     val createdAt: Long = 0L,
     val alarmSound: Boolean = true,
-    val alarmVibrate: Boolean = true
+    val alarmVibrate: Boolean = true,
+    val isOneTime: Boolean = false // 한번 울리고 자동 삭제
 ) {
     fun displayTime(): String {
         val h12 = when {

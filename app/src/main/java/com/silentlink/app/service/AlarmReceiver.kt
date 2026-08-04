@@ -3,9 +3,14 @@ package com.silentlink.app.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 import com.silentlink.app.manager.AlarmScheduler
 import com.silentlink.app.model.RemoteAlarm
+import com.silentlink.app.repository.FirebaseRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AlarmReceiver : BroadcastReceiver() {
 
@@ -28,7 +33,22 @@ class AlarmReceiver : BroadcastReceiver() {
         )
 
         if (alarm != null && alarm.isEnabled) {
-            AlarmScheduler(context).schedule(alarm)
+            if (alarm.isOneTime) {
+                // 한번만 알람: 재예약하지 않고 Firebase에서 삭제
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+                        if (myUid != null) {
+                            runCatching { FirebaseRepository().deleteAlarm(myUid, alarm.id) }
+                        }
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }
+            } else {
+                AlarmScheduler(context).schedule(alarm)
+            }
         }
     }
 }

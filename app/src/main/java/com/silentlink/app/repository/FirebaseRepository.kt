@@ -8,6 +8,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.silentlink.app.model.DeviceStatus
+import com.silentlink.app.model.DndConfig
 import com.silentlink.app.model.RemoteAlarm
 import com.silentlink.app.model.UserActivity
 import com.silentlink.app.model.VolumeLevel
@@ -239,6 +240,45 @@ class FirebaseRepository {
         db.getReference("devices/$uid/commands/$command").removeValue().await()
     }
 
+    // 방해금지 설정 동기화 (상대방이 내 방해금지 시간을 확인할 수 있도록)
+    suspend fun updateMyDndConfig(uid: String, config: DndConfig) {
+        db.getReference("devices/$uid/dndConfig").setValue(
+            mapOf(
+                "isEnabled" to config.isEnabled,
+                "startHour" to config.startHour,
+                "startMinute" to config.startMinute,
+                "endHour" to config.endHour,
+                "endMinute" to config.endMinute,
+                "days" to config.days.sorted()
+            )
+        ).await()
+    }
+
+    fun observePartnerDndConfig(partnerUid: String): Flow<DndConfig?> = callbackFlow {
+        val ref = db.getReference("devices/$partnerUid/dndConfig")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (!snapshot.exists()) { trySend(null); return }
+                val config = runCatching {
+                    DndConfig(
+                        isEnabled = snapshot.child("isEnabled").getValue(Boolean::class.java) ?: false,
+                        startHour = (snapshot.child("startHour").getValue(Long::class.java) ?: 22L).toInt(),
+                        startMinute = (snapshot.child("startMinute").getValue(Long::class.java) ?: 0L).toInt(),
+                        endHour = (snapshot.child("endHour").getValue(Long::class.java) ?: 7L).toInt(),
+                        endMinute = (snapshot.child("endMinute").getValue(Long::class.java) ?: 0L).toInt(),
+                        days = snapshot.child("days").children.mapNotNull {
+                            it.getValue(Long::class.java)?.toInt()
+                        }.toSet()
+                    )
+                }.getOrNull()
+                trySend(config)
+            }
+            override fun onCancelled(error: DatabaseError) { close(error.toException()) }
+        }
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
     // 상태 업데이트
 
     suspend fun updateVolumeStatus(uid: String, level: VolumeLevel) {
@@ -277,7 +317,8 @@ class FirebaseRepository {
                 "hour" to alarm.hour, "minute" to alarm.minute,
                 "days" to alarm.days.sorted().joinToString(","),
                 "isEnabled" to alarm.isEnabled, "createdAt" to alarm.createdAt,
-                "alarmSound" to alarm.alarmSound, "alarmVibrate" to alarm.alarmVibrate
+                "alarmSound" to alarm.alarmSound, "alarmVibrate" to alarm.alarmVibrate,
+                "isOneTime" to alarm.isOneTime
             )
         ).await()
     }
@@ -316,7 +357,8 @@ class FirebaseRepository {
                             isEnabled = child.child("isEnabled").getValue(Boolean::class.java) ?: true,
                             createdAt = child.child("createdAt").getValue(Long::class.java) ?: 0L,
                             alarmSound = child.child("alarmSound").getValue(Boolean::class.java) ?: true,
-                            alarmVibrate = child.child("alarmVibrate").getValue(Boolean::class.java) ?: true
+                            alarmVibrate = child.child("alarmVibrate").getValue(Boolean::class.java) ?: true,
+                            isOneTime = child.child("isOneTime").getValue(Boolean::class.java) ?: false
                         )
                     }.getOrNull()
                 }

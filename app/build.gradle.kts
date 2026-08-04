@@ -13,8 +13,8 @@ android {
         applicationId = "com.silentlink.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 25
-        versionName = "2.00"
+        versionCode = 26
+        versionName = "2.01"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

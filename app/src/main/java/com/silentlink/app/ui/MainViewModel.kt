@@ -192,6 +192,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             restoreDuration = restoreDuration
         ) }
         DndPrefs.save(context, dndConfig)
+        // 앱 시작 시 내 DND 설정을 Firebase에 발행 (파트너가 방해금지 시간 확인 가능)
+        viewModelScope.launch { runCatching { repository.updateMyDndConfig(myUid, dndConfig) } }
 
         // 온보딩된 기기는 파트너 유무와 관계없이 항상 서비스 실행
         // (원격 명령 수신, 볼륨 상태 동기화, 알람 스케줄링 필요)
@@ -321,7 +323,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        partnerListenerJobs[partnerUid] = listOf(statusJob, alarmsJob)
+        val dndJob = viewModelScope.launch {
+            repository.observePartnerDndConfig(partnerUid).catch { }.collect { config ->
+                _uiState.update { state ->
+                    state.copy(partners = state.partners.map { p ->
+                        if (p.uid == partnerUid) p.copy(dndConfig = config) else p
+                    })
+                }
+            }
+        }
+        partnerListenerJobs[partnerUid] = listOf(statusJob, alarmsJob, dndJob)
     }
 
     private fun listenToMyAlarms(myUid: String) {
@@ -481,6 +492,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             getApplication<Application>().appDataStore.edit { prefs ->
                 prefs[KEY_DND_CONFIG] = gson.toJson(config)
             }
+            val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+            runCatching { repository.updateMyDndConfig(myUid, config) }
         }
     }
 
@@ -515,6 +528,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
             runCatching { repository.deleteAlarm(myUid, alarmId) }.onFailure {
                 _uiState.update { state -> state.copy(errorMessage = "알람 삭제 실패: ${it.message}") }
+            }
+        }
+    }
+
+    fun toggleMyAlarm(alarmId: String, enabled: Boolean) {
+        val alarm = _uiState.value.alarmsFromPartners.find { it.id == alarmId } ?: return
+        viewModelScope.launch {
+            val myUid = _uiState.value.myUid.ifEmpty { return@launch }
+            runCatching { repository.updateAlarm(myUid, alarm.copy(isEnabled = enabled)) }.onFailure {
+                _uiState.update { state -> state.copy(errorMessage = "알람 수정 실패: ${it.message}") }
             }
         }
     }
