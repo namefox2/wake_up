@@ -327,7 +327,8 @@ private fun PartnerListTab(
     val colors = MaterialTheme.colorScheme
     var showConnectInput by remember { mutableStateOf(false) }
     var partnerCodeInput by remember { mutableStateOf("") }
-    val dndManager = remember { DndManager(LocalContext.current) }
+    val context = LocalContext.current
+    val dndManager = remember { DndManager(context) }
 
     val canAddMore = partners.size < maxDevices
 
