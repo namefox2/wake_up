@@ -110,6 +110,7 @@ fun AlarmScreen(viewModel: MainViewModel) {
                 )
             }
 
+            // ── 내가 상대에게 설정하는 섹션 (연결 필요) ──────────────────
             if (!uiState.isConnected) {
                 item {
                     Card(
@@ -129,7 +130,7 @@ fun AlarmScreen(viewModel: MainViewModel) {
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                "상대방과 연결 후 사용할 수 있습니다",
+                                "상대방과 연결 후 알람을 설정할 수 있습니다",
                                 fontSize = 14.sp,
                                 color = colors.onSurface.copy(alpha = 0.5f),
                                 textAlign = TextAlign.Center
@@ -141,7 +142,7 @@ fun AlarmScreen(viewModel: MainViewModel) {
                 val selectedPartner = uiState.selectedPartnerForAlarm
                 val selectedUid = selectedPartner?.uid ?: ""
 
-                // 기기 선택기 — 항상 표시 (1대면 라벨만, 여럿이면 탭 선택)
+                // 기기 선택기
                 item {
                     if (uiState.partners.size > 1) {
                         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -172,7 +173,6 @@ fun AlarmScreen(viewModel: MainViewModel) {
                     Spacer(modifier = Modifier.height(4.dp))
                 }
 
-                // 내가 상대방에게 설정한 알람 (선택된 기기 이름 표시)
                 val targetName = uiState.deviceNames[selectedUid] ?: "상대방"
                 item { SectionLabel("$targetName 에게 설정한 알람") }
 
@@ -188,26 +188,26 @@ fun AlarmScreen(viewModel: MainViewModel) {
                         )
                     }
                 }
-
-                // 상대방이 나에게 설정한 알람
-                if (uiState.alarmsFromPartners.isNotEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SectionLabel("내 기기에 설정된 알람 (상대방 설정)")
-                    }
-                    items(uiState.alarmsFromPartners, key = { "p_${it.id}" }) { alarm ->
-                        AlarmCard(
-                            alarm = alarm,
-                            readOnly = false,
-                            onToggle = { viewModel.toggleMyAlarm(alarm.id, !alarm.isEnabled) },
-                            onDelete = { viewModel.deleteMyAlarm(alarm.id) },
-                            onClick = {}
-                        )
-                    }
-                }
-
-                item { Spacer(modifier = Modifier.height(80.dp)) }
             }
+
+            // ── 내 기기에 설정된 알람 (연결 여부와 무관하게 항상 표시) ──
+            if (uiState.alarmsFromPartners.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SectionLabel("내 기기에 설정된 알람 (상대방 설정)")
+                }
+                items(uiState.alarmsFromPartners, key = { "p_${it.id}" }) { alarm ->
+                    AlarmCard(
+                        alarm = alarm,
+                        readOnly = false,
+                        onToggle = { viewModel.toggleMyAlarm(alarm.id, !alarm.isEnabled) },
+                        onDelete = { viewModel.deleteMyAlarm(alarm.id) },
+                        onClick = {}
+                    )
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(80.dp)) }
         }
         }
     }
