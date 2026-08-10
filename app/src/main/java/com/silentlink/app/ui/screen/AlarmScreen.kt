@@ -197,9 +197,12 @@ fun AlarmScreen(viewModel: MainViewModel) {
                     SectionLabel("내 기기에 설정된 알람 (상대방 설정)")
                 }
                 items(uiState.alarmsFromPartners, key = { "p_${it.id}" }) { alarm ->
+                    val setterName = uiState.deviceNames[alarm.setByUid]?.ifEmpty { null }
+                        ?: if (alarm.setByUid.isNotEmpty()) "상대방" else null
                     AlarmCard(
                         alarm = alarm,
                         readOnly = false,
+                        setterName = setterName,
                         onToggle = { viewModel.toggleMyAlarm(alarm.id, !alarm.isEnabled) },
                         onDelete = { viewModel.deleteMyAlarm(alarm.id) },
                         onClick = {}
@@ -272,6 +275,7 @@ private fun EmptyAlarmHint() {
 private fun AlarmCard(
     alarm: RemoteAlarm,
     readOnly: Boolean = false,
+    setterName: String? = null,
     onToggle: () -> Unit,
     onDelete: (() -> Unit)? = null,
     onClick: () -> Unit
@@ -305,6 +309,21 @@ private fun AlarmCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                if (setterName != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(AccentBlue.copy(alpha = 0.12f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text("👤 $setterName 설정", fontSize = 10.sp, color = AccentBlue)
+                        }
+                    }
+                }
                 if (alarm.label.isNotEmpty()) {
                     Text(
                         alarm.label,
@@ -374,16 +393,19 @@ private fun DayChip(label: String, active: Boolean) {
     val colors = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
-            .size(26.dp)
+            .height(26.dp)
+            .widthIn(min = 26.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(if (active) AccentBlue else colors.outline.copy(alpha = 0.25f)),
+            .background(if (active) AccentBlue else colors.outline.copy(alpha = 0.25f))
+            .padding(horizontal = 5.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             label,
             fontSize = 10.sp,
             color = if (active) Color.White else colors.onSurface.copy(alpha = 0.35f),
-            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1
         )
     }
 }

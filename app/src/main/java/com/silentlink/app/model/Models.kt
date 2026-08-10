@@ -58,7 +58,8 @@ data class RemoteAlarm(
     val createdAt: Long = 0L,
     val alarmSound: Boolean = true,
     val alarmVibrate: Boolean = true,
-    val isOneTime: Boolean = false // 한번 울리고 자동 삭제
+    val isOneTime: Boolean = false, // 한번 울리고 자동 삭제
+    val setByUid: String = ""       // 알람을 설정한 기기의 UID
 ) {
     fun displayTime(): String {
         val h12 = when {

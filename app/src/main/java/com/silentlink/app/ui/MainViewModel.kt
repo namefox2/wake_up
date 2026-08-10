@@ -183,7 +183,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             partners   = partnerUids.map { uid -> PartnerState(uid = uid) },
             theme      = theme,
             dndConfig  = dndConfig,
-            myStatus   = DeviceStatus(isMuted = audioManager.isMuted(), isOnline = true),
+            myStatus   = DeviceStatus(
+                isMuted      = audioManager.isMuted(),
+                volumeLevel  = audioManager.getCurrentVolumeLevel(),
+                isOnline     = true
+            ),
             myActivity = myActivity,
             purchasedSlots = purchasedSlots,
             googleEmail = repository.getGoogleEmail(),
@@ -202,6 +206,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         listenToMyAlarms(myUid)
         listenToControllers(myUid)
         listenToMyPartnerIds(myUid)
+        listenToMyAccessAllowed(myUid)
 
         // 구버전 DataStore 마이그레이션
         if (prefs[KEY_PARTNER_UID] != null && prefs[KEY_PARTNER_UIDS] == null) {
@@ -249,6 +254,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 listenToMyAlarms(uid)
                 listenToControllers(uid)
                 listenToMyPartnerIds(uid)
+                listenToMyAccessAllowed(uid)
             } catch (e: Exception) {
                 _uiState.update { it.copy(isOnboarding = false, errorMessage = "초기화 실패: ${e.message}") }
             }
@@ -396,6 +402,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun listenToMyAccessAllowed(myUid: String) {
+        viewModelScope.launch {
+            repository.observeAccessAllowed(myUid).catch { }.collect { allowed ->
+                _uiState.update { it.copy(myStatus = it.myStatus.copy(isAccessAllowed = allowed)) }
+            }
+        }
+    }
+
     fun removeController(controllerUid: String) {
         viewModelScope.launch {
             val myUid = _uiState.value.myUid.ifEmpty { return@launch }
@@ -501,7 +515,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addAlarmFor(partnerUid: String, alarm: RemoteAlarm) {
         viewModelScope.launch {
-            runCatching { repository.addAlarm(partnerUid, alarm) }.onFailure {
+            val myUid = _uiState.value.myUid
+            runCatching { repository.addAlarm(partnerUid, alarm.copy(setByUid = myUid)) }.onFailure {
                 _uiState.update { state -> state.copy(errorMessage = "알람 저장 실패: ${it.message}") }
             }
         }

@@ -318,7 +318,8 @@ class FirebaseRepository {
                 "days" to alarm.days.sorted().joinToString(","),
                 "isEnabled" to alarm.isEnabled, "createdAt" to alarm.createdAt,
                 "alarmSound" to alarm.alarmSound, "alarmVibrate" to alarm.alarmVibrate,
-                "isOneTime" to alarm.isOneTime
+                "isOneTime" to alarm.isOneTime,
+                "setByUid" to alarm.setByUid
             )
         ).await()
     }
@@ -358,7 +359,8 @@ class FirebaseRepository {
                             createdAt = child.child("createdAt").getValue(Long::class.java) ?: 0L,
                             alarmSound = child.child("alarmSound").getValue(Boolean::class.java) ?: true,
                             alarmVibrate = child.child("alarmVibrate").getValue(Boolean::class.java) ?: true,
-                            isOneTime = child.child("isOneTime").getValue(Boolean::class.java) ?: false
+                            isOneTime = child.child("isOneTime").getValue(Boolean::class.java) ?: false,
+                            setByUid = child.child("setByUid").getValue(String::class.java) ?: ""
                         )
                     }.getOrNull()
                 }
