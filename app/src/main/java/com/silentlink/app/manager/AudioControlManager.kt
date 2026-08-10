@@ -37,13 +37,18 @@ class AudioControlManager(private val context: Context) {
             when (level) {
                 VolumeLevel.MUTE -> {
                     exitDndIfActive()  // DND 활성 상태면 먼저 해제 시도
+                    var muted = false
                     try {
                         am.ringerMode = AudioManager.RINGER_MODE_SILENT
+                        muted = true
                     } catch (_: SecurityException) {
                         // 무음 실패 시 진동으로 폴백 (진동도 DND로 막힐 수 있으므로 별도 try-catch)
-                        try { am.ringerMode = AudioManager.RINGER_MODE_VIBRATE } catch (_: SecurityException) { }
+                        try {
+                            am.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+                            muted = true
+                        } catch (_: SecurityException) { }
                     }
-                    true
+                    muted
                 }
                 VolumeLevel.VIBRATE -> {
                     exitDndIfActive()

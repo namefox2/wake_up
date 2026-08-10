@@ -136,7 +136,7 @@ class SilentLinkService : Service() {
 
     private fun syncActualMuteState() {
         val now = System.currentTimeMillis()
-        if (now - lastSyncMs < 2_000) return
+        if (now - lastSyncMs < 500) return
         lastSyncMs = now
         scope.launch {
             val myUid = repository.getCurrentUserId() ?: awaitUserId() ?: return@launch
