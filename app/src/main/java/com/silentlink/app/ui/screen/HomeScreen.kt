@@ -48,6 +48,8 @@ import com.silentlink.app.ui.theme.AccentBlue
 import com.silentlink.app.ui.theme.DangerRed
 import com.silentlink.app.ui.theme.SuccessGreen
 
+private val SELECTABLE_ACTIVITIES = UserActivity.entries.filter { it != UserActivity.NONE }
+
 @Composable
 fun HomeScreen(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsState()
@@ -642,9 +644,7 @@ private fun PartnerCard(
         val levelColor = when (level) {
             VolumeLevel.MUTE -> DangerRed; VolumeLevel.VIBRATE -> AccentBlue; VolumeLevel.SOUND -> SuccessGreen
         }
-        val levelDesc = when (level) {
-            VolumeLevel.MUTE -> "무음"; VolumeLevel.VIBRATE -> "진동"; VolumeLevel.SOUND -> "소리"
-        }
+        val levelDesc = level.label
         AlertDialog(
             onDismissRequest = { pendingLevel = null },
             title = { Text("${level.icon} $levelDesc 모드로 전환", fontWeight = FontWeight.Bold) },
@@ -842,7 +842,7 @@ private fun PartnerCard(
 @Composable
 private fun MyActivityCard(currentActivity: UserActivity, onActivitySelect: (UserActivity) -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val activities = UserActivity.entries.filter { it != UserActivity.NONE }
+    val activities = SELECTABLE_ACTIVITIES
 
     Card(
         modifier = Modifier.fillMaxWidth(),

@@ -56,23 +56,26 @@ class FirebaseRepository {
 
     suspend fun refreshInviteCode(uid: String, oldCode: String): String {
         val newCode = generateInviteCode()
-        // Write new entries first so the device is always reachable
-        db.getReference("codes/$newCode").setValue(uid).await()
-        db.getReference("devices/$uid/inviteCode").setValue(newCode).await()
-        db.getReference("codes/$oldCode").removeValue().await()
+        val updates: Map<String, Any?> = mapOf(
+            "codes/$newCode" to uid,
+            "devices/$uid/inviteCode" to newCode,
+            "codes/$oldCode" to null
+        )
+        db.reference.updateChildren(updates).await()
         return newCode
     }
 
     suspend fun registerDevice(uid: String, inviteCode: String) {
-        db.getReference("codes/$inviteCode").setValue(uid).await()
-        db.getReference("devices/$uid/inviteCode").setValue(inviteCode).await()
-        db.getReference("devices/$uid/status").setValue(
-            mapOf(
+        val updates: Map<String, Any?> = mapOf(
+            "codes/$inviteCode" to uid,
+            "devices/$uid/inviteCode" to inviteCode,
+            "devices/$uid/status" to mapOf(
                 "isMuted" to false, "volumeLevel" to "SOUND",
                 "isAccessAllowed" to true, "isOnline" to true,
                 "lastUpdated" to System.currentTimeMillis(), "activity" to "NONE"
             )
-        ).await()
+        )
+        db.reference.updateChildren(updates).await()
     }
 
     // 파트너 연결 (멀티 지원)
@@ -95,21 +98,28 @@ class FirebaseRepository {
         if (partnerUid == myUid) return ConnectResult.NOT_FOUND
         if (db.getReference("devices/$myUid/partnerIds/$partnerUid").get().await().exists())
             return ConnectResult.ALREADY_CONNECTED
-        db.getReference("devices/$myUid/partnerIds/$partnerUid").setValue(true).await()
-        // 상대방 기기에 "나를 등록한 기기" 기록
-        db.getReference("devices/$partnerUid/registeredBy/$myUid").setValue(true).await()
+        db.reference.updateChildren(mapOf(
+            "devices/$myUid/partnerIds/$partnerUid" to true,
+            "devices/$partnerUid/registeredBy/$myUid" to true
+        )).await()
         return ConnectResult.SUCCESS(partnerUid)
     }
 
     suspend fun disconnectFromPartner(myUid: String, partnerUid: String) {
-        db.getReference("devices/$myUid/partnerIds/$partnerUid").removeValue().await()
-        db.getReference("devices/$partnerUid/registeredBy/$myUid").removeValue().await()
+        val updates: Map<String, Any?> = mapOf(
+            "devices/$myUid/partnerIds/$partnerUid" to null,
+            "devices/$partnerUid/registeredBy/$myUid" to null
+        )
+        db.reference.updateChildren(updates).await()
     }
 
     // 나를 등록한 기기(컨트롤러)를 차단
     suspend fun removeController(myUid: String, controllerUid: String) {
-        db.getReference("devices/$myUid/registeredBy/$controllerUid").removeValue().await()
-        db.getReference("devices/$controllerUid/partnerIds/$myUid").removeValue().await()
+        val updates: Map<String, Any?> = mapOf(
+            "devices/$myUid/registeredBy/$controllerUid" to null,
+            "devices/$controllerUid/partnerIds/$myUid" to null
+        )
+        db.reference.updateChildren(updates).await()
     }
 
     suspend fun disconnectAll(myUid: String) {
@@ -238,6 +248,11 @@ class FirebaseRepository {
 
     suspend fun deleteCommand(uid: String, command: String) {
         db.getReference("devices/$uid/commands/$command").removeValue().await()
+    }
+
+    suspend fun deleteCommands(uid: String, vararg commands: String) {
+        val updates: Map<String, Any?> = commands.associateWith { null }
+        db.getReference("devices/$uid/commands").updateChildren(updates).await()
     }
 
     // 방해금지 설정 동기화 (상대방이 내 방해금지 시간을 확인할 수 있도록)

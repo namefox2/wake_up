@@ -171,8 +171,7 @@ class SilentLinkService : Service() {
                             if (sentAt > 0) {
                                 val processedAt = servicePrefs.getLong(KEY_LAST_CMD_SENT_AT, 0L)
                                 if (sentAt <= processedAt) {
-                                    runCatching { repository.deleteCommand(myUid, "setVolume") }
-                                    runCatching { repository.deleteCommand(myUid, "setVolumeAt") }
+                                    runCatching { repository.deleteCommands(myUid, "setVolume", "setVolumeAt") }
                                     return@let
                                 }
                             }
@@ -183,8 +182,7 @@ class SilentLinkService : Service() {
                             // 방해금지 시간 중 수신된 명령은 무시하고 삭제
                             val dndConfig = DndPrefs.load(this@SilentLinkService)
                             if (dndManager.isInDndTime(dndConfig)) {
-                                runCatching { repository.deleteCommand(myUid, "setVolume") }
-                                runCatching { repository.deleteCommand(myUid, "setVolumeAt") }
+                                runCatching { repository.deleteCommands(myUid, "setVolume", "setVolumeAt") }
                                 return@let
                             }
 
@@ -203,9 +201,7 @@ class SilentLinkService : Service() {
                                 showVolumeChangedNotification(restoreMs)
                                 runCatching { repository.updateVolumeStatus(myUid, actualLevel) }
                             }
-                            runCatching { repository.deleteCommand(myUid, "setVolume") }
-                            runCatching { repository.deleteCommand(myUid, "setVolumeAt") }
-                            runCatching { repository.deleteCommand(myUid, "setVolumeRestoreMs") }
+                            runCatching { repository.deleteCommands(myUid, "setVolume", "setVolumeAt", "setVolumeRestoreMs") }
                         }
                     }
                 }.isFailure

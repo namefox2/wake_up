@@ -52,9 +52,3 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 }
-
-class AlarmDismissReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        AlarmRingService.dismiss(context)
-    }
-}

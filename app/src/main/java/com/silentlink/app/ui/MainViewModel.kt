@@ -168,8 +168,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ?: prefs[KEY_PARTNER_UID]?.let { listOf(it) }
             ?: emptyList())
 
-        val isAdmin = runCatching { repository.isAdmin(myUid) }.getOrDefault(false)
-        val purchasedSlots = if (isAdmin) 4 else runCatching { repository.getPurchasedSlots(myUid) }.getOrDefault(0)
+        val isAdminDeferred = viewModelScope.async { runCatching { repository.isAdmin(myUid) }.getOrDefault(false) }
+        val slotsDeferred = viewModelScope.async { runCatching { repository.getPurchasedSlots(myUid) }.getOrDefault(0) }
+        val isAdmin = isAdminDeferred.await()
+        val purchasedSlots = if (isAdmin) 4 else slotsDeferred.await()
         val deviceNames = runCatching {
             val mapType = object : com.google.gson.reflect.TypeToken<Map<String, String>>() {}.type
             gson.fromJson<Map<String, String>>(prefs[KEY_DEVICE_NAMES] ?: "{}", mapType) ?: emptyMap()

@@ -81,8 +81,7 @@ data class SilentLinkColors(
     val onSurface: Color,
     val outline: Color,
     val accent: Color = AccentBlue,
-    val danger: Color = DangerRed,
-    val success: Color = SuccessGreen
+    val danger: Color = DangerRed
 )
 
 fun AppTheme.toSilentLinkColors(): SilentLinkColors = when (this) {

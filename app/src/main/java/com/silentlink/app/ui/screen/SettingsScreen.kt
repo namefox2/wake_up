@@ -232,7 +232,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 granted = canWriteSettings,
                 onClick = {
                     val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                        data = android.net.Uri.parse("package:${context.packageName}")
+                        data = Uri.parse("package:${context.packageName}")
                     }
                     context.startActivity(intent)
                 }
@@ -259,7 +259,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     onClick = {
                         context.startActivity(
                             Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                                data = android.net.Uri.parse("package:${context.packageName}")
+                                data = Uri.parse("package:${context.packageName}")
                             }
                         )
                     }
@@ -276,7 +276,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     if (!batteryIgnored) {
                         context.startActivity(
                             Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                data = android.net.Uri.parse("package:${context.packageName}")
+                                data = Uri.parse("package:${context.packageName}")
                             }
                         )
                     } else {

@@ -7,7 +7,6 @@ import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingFlowParams
 import com.android.billingclient.api.BillingResult
-import com.android.billingclient.api.ConsumeParams
 import com.android.billingclient.api.PendingPurchasesParams
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
@@ -16,15 +15,6 @@ import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-
-// 개발자 응원 상품 (소모성)
-data class SupportTier(val productId: String, val displayName: String, val price: String)
-val SUPPORT_TIERS = listOf(
-    SupportTier("support_400", "작은 응원", "400원"),
-    SupportTier("support_900", "감사해요", "900원"),
-    SupportTier("support_1500", "많이 응원해요", "1,500원"),
-    SupportTier("support_2000", "최고예요!", "2,000원")
-)
 
 // 디바이스 슬롯 상품 (비소모성 - 최대 4개 추가 = 총 5대)
 // extra_slot_1 = 2번째 기기, extra_slot_2 = 3번째 기기 ...
@@ -46,9 +36,7 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
 
     sealed class BillingState {
         object Idle : BillingState()
-        object Loading : BillingState()
         data class SlotPurchased(val newTotalSlots: Int) : BillingState()
-        data class SupportPurchased(val productId: String) : BillingState()
         data class Error(val message: String) : BillingState()
     }
 
@@ -58,7 +46,7 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
             override fun onBillingSetupFinished(result: BillingResult) {
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
                     queryAllProducts()
-                    queryOwnedSlots { onBillingReady(it) }
+                    queryOwnedSlots(onBillingReady)
                 }
             }
             override fun onBillingServiceDisconnected() {}
@@ -66,8 +54,7 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
     }
 
     private fun queryAllProducts() {
-        val allIds = SUPPORT_TIERS.map { it.productId } + DEVICE_SLOT_PRODUCT_IDS
-        val productList = allIds.map {
+        val productList = DEVICE_SLOT_PRODUCT_IDS.map {
             QueryProductDetailsParams.Product.newBuilder()
                 .setProductId(it)
                 .setProductType(BillingClient.ProductType.INAPP)
@@ -132,8 +119,6 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
             val productId = purchase.products.firstOrNull() ?: continue
             if (productId.startsWith("extra_slot_")) {
                 handleSlotPurchase(purchase)
-            } else {
-                handleSupportPurchase(purchase)
             }
         }
     }
@@ -158,16 +143,6 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
                 onSlotPurchased?.invoke(newTotalSlots)
             } else {
                 _billingState.value = BillingState.Error("슬롯 승인 실패 (${result.responseCode}), 잠시 후 다시 시도해주세요")
-            }
-        }
-    }
-
-    private fun handleSupportPurchase(purchase: Purchase) {
-        val consumeParams = ConsumeParams.newBuilder()
-            .setPurchaseToken(purchase.purchaseToken).build()
-        billingClient.consumeAsync(consumeParams) { result, _ ->
-            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                _billingState.value = BillingState.SupportPurchased(purchase.products.firstOrNull() ?: "")
             }
         }
     }
