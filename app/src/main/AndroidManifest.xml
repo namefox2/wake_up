@@ -67,10 +67,6 @@
             android:name=".service.AlarmReceiver"
             android:exported="false" />
 
-        <receiver
-            android:name=".service.AlarmDismissReceiver"
-            android:exported="false" />
-
         <!-- 알람 울림 서비스 -->
         <service
             android:name=".service.AlarmRingService"
